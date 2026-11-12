@@ -122,7 +122,7 @@ def plot_visual(cube: np.ndarray, recons: dict[str, np.ndarray], pattern: str, o
         axes[0, col].imshow(rgb)
         axes[0, col].set_title(LABELS[m], fontsize=9)
         err = np.abs(crop - ref).mean(-1)
-        im = axes[1, col].imshow(err, cmap="magma", vmin=0, vmax=0.05)
+        im = axes[1, col].imshow(err, cmap="magma", vmin=0, vmax=0.15)
         axes[1, col].set_title(f"MAE {err.mean():.4f}", fontsize=8)
     for ax in axes.ravel():
         ax.set_xticks([])
@@ -172,7 +172,7 @@ def main() -> None:
     parser.add_argument("--data-mode", choices=("arad", "cave-split"), required=True)
     parser.add_argument("--checkpoints", type=Path, default=Path("checkpoints"))
     parser.add_argument("--results", type=Path, default=Path("results"))
-    parser.add_argument("--scene", default=None, help="test scene for the visual figures (default: first)")
+    parser.add_argument("--scene", default="beads_ms", help="test scene for the visual figures (falls back to the first test scene)")
     args = parser.parse_args()
 
     out = args.results / "figs"
