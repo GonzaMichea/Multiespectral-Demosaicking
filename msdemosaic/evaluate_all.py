@@ -166,6 +166,7 @@ def main() -> None:
     summary = summarize(rows)
     _write_csv(args.out / "per_scene.csv", rows)
     _write_csv(args.out / "per_band.csv", band_rows)
+    _write_csv(args.out / "summary.csv", summary)
     write_tables(summary, args.out)
     hyp = hypotheses(summary)
     hyp["data_mode"] = args.data_mode

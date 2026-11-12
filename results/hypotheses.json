@@ -1,0 +1,10 @@
+{
+  "h1_drop_db": null,
+  "h1_drop_db_osp": null,
+  "h2_gap_db": null,
+  "h2_holds": null,
+  "h3_margin_db": null,
+  "h3_holds": null,
+  "data_mode": "cave-split",
+  "num_test_scenes": 8
+}
