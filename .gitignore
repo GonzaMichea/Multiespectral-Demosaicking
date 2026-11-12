@@ -1,0 +1,11 @@
+data/
+checkpoints/
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.DS_Store
+*.pt
+.superpowers/
+DemosaickingMultispectral3DSpherePacking/
+Multispectral_Filter_Array_Design_by_Optimal_Sphere_Packing.pdf

@@ -1,0 +1,1 @@
+"""Pattern-agnostic multispectral demosaicking."""
