@@ -74,7 +74,7 @@
   #v(-0.3em)
   #text(size: 1.15em)[¿Puede una sola red reconstruir con cualquier arreglo de filtros (MSFA), incluso uno que nunca vio?]
   #v(0.1em)
-  #text(size: 0.9em)[Benjamín Cisternas · [Integrante 2] #h(1fr) Fotografía Computacional 2026-2 · Universidad Técnica Federico Santa María]
+  #text(size: 0.9em)[Benjamín Cisternas · Gonzalo Michea #h(1fr) Fotografía Computacional 2026-2 · Universidad Técnica Federico Santa María]
 ]
 
 #grid(columns: (1fr, 1fr), column-gutter: 1.6cm,

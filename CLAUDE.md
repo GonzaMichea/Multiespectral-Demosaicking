@@ -1,7 +1,7 @@
 # Proyecto: Demosaicking multiespectral agnóstico al patrón
 
 Curso: Fotografía Computacional 2026-2, Universidad Técnica Federico Santa María.
-Equipo: Benjamín Cisternas y [Integrante 2]. Idioma de trabajo: español
+Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
 (los documentos tipo paper van en inglés porque el template ICIP lo exige).
 
 ## Estado actual (actualizado el lun 16 nov 2026, 14:20)
@@ -37,8 +37,7 @@ Equipo: Benjamín Cisternas y [Integrante 2]. Idioma de trabajo: español
 5. `LaTeX_template/report.tex` (informe ICIP en inglés, a partir de
    `proposal.tex`; toda cifra debe salir de `results/`).
 6. Revisión final del código (nadie más lo ha revisado).
-7. Reemplazar `[Integrante 2]` en póster, presentación Typst y LaTeX.
-8. Nivel C (ruido) no se ha tocado; solo si sobra tiempo.
+7. Nivel C (ruido) no se ha tocado; solo si sobra tiempo.
 
 ## Entrenamiento
 
