@@ -9,6 +9,7 @@
 new random balanced pattern for every batch.
 """
 import argparse
+import sys
 import time
 from pathlib import Path
 
@@ -70,9 +71,27 @@ def _validate(model: UNet, val_set, device) -> float:
     return float(10 * np.log10(1.0 / max(sq_err / count, 1e-10)))
 
 
+class TrainingPaused(Exception):
+    """Raised when a run stops on its time/iteration budget; state is saved for resuming."""
+
+
+def _save_state(path: Path, **state) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    torch.save(state, tmp)
+    tmp.replace(path)  # atomic: a kill during the write never corrupts the state
+
+
 def train(cubes_train, cubes_val, *, train_pattern: str, iters: int, out, batch: int = 32,
-          lr: float = 1e-3, val_every: int = 1000, seed: int = 0, device=None) -> float:
-    """Train and save the best checkpoint (by validation PSNR) to `out`. Returns that PSNR."""
+          lr: float = 1e-3, val_every: int = 1000, seed: int = 0, device=None,
+          max_minutes: float | None = None, max_iters_this_run: int | None = None) -> float:
+    """Train and save the best checkpoint (by validation PSNR) to `out`. Returns that PSNR.
+
+    Resumable: the full training state is written to `<out>.state.pt` at every
+    validation. If that file exists, training continues from it (the result is
+    identical to an uninterrupted run). With `max_minutes` / `max_iters_this_run`
+    the run stops at the next validation after the budget and raises
+    TrainingPaused. A killed run loses at most `val_every` iterations.
+    """
     out = Path(out)
     device = device or pick_device()
     torch.manual_seed(seed)
@@ -85,10 +104,29 @@ def train(cubes_train, cubes_val, *, train_pattern: str, iters: int, out, batch:
 
     out.parent.mkdir(parents=True, exist_ok=True)
     log_path = out.with_suffix(".log.csv")
-    log_path.write_text("iter,train_l1,val_psnr\n")
+    state_path = out.with_suffix(".state.pt")
+    config = {"train_pattern": train_pattern, "iters": iters, "batch": batch, "lr": lr, "seed": seed,
+              "val_every": val_every}
 
-    best, running, start = -np.inf, [], time.time()
-    for it in range(1, iters + 1):
+    first_it, best = 1, -np.inf
+    if state_path.exists():
+        state = torch.load(state_path, map_location=device, weights_only=False)
+        if state["config"] != config:
+            raise ValueError(
+                f"{state_path} belongs to a run with different settings ({state['config']} vs {config}); "
+                "delete it to start over"
+            )
+        model.load_state_dict(state["model"])
+        optimizer.load_state_dict(state["optimizer"])
+        scheduler.load_state_dict(state["scheduler"])
+        rng.bit_generator.state = state["rng"]
+        first_it, best = state["it"] + 1, state["best"]
+        print(f"resuming from iteration {state['it']} (best {best:.2f} dB)", flush=True)
+    else:
+        log_path.write_text("iter,train_l1,val_psnr\n")
+
+    running, start = [], time.time()
+    for it in range(first_it, iters + 1):
         y, m, x = (t.to(device) for t in make_batch(cubes_train, rng, train_pattern, batch))
         loss = F.l1_loss(model(y, m if model.use_mask else None), x)
         optimizer.zero_grad(set_to_none=True)
@@ -106,8 +144,19 @@ def train(cubes_train, cubes_val, *, train_pattern: str, iters: int, out, batch:
             if val_psnr > best:
                 best = val_psnr
                 save_checkpoint(out, model, train_pattern=train_pattern, iters=it, val_psnr=val_psnr)
-            rate = it / (time.time() - start)
-            print(f"iter {it:6d}/{iters}  l1 {train_l1:.5f}  val {val_psnr:.2f} dB  best {best:.2f}  {rate:.1f} it/s", flush=True)
+            done = it - first_it + 1
+            elapsed = time.time() - start
+            print(f"iter {it:6d}/{iters}  l1 {train_l1:.5f}  val {val_psnr:.2f} dB  best {best:.2f}  {done / elapsed:.1f} it/s", flush=True)
+            if it == iters:
+                break
+            _save_state(state_path, config=config, it=it, best=best, model=model.state_dict(),
+                        optimizer=optimizer.state_dict(), scheduler=scheduler.state_dict(),
+                        rng=rng.bit_generator.state)
+            over_time = max_minutes is not None and elapsed >= max_minutes * 60
+            over_iters = max_iters_this_run is not None and done >= max_iters_this_run
+            if over_time or over_iters:
+                raise TrainingPaused(f"paused at iteration {it}/{iters}; rerun the same command to continue")
+    state_path.unlink(missing_ok=True)
     return float(best)
 
 
@@ -123,6 +172,8 @@ def main() -> None:
     parser.add_argument("--val-every", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--max-minutes", type=float, default=None,
+                        help="pause at the next validation after this many minutes (exit code 3)")
     args = parser.parse_args()
 
     scenes = list_scenes(args.data_root, args.data_mode)
@@ -130,8 +181,12 @@ def main() -> None:
     cubes_train = [load_cube16(p, cache) for p in scenes["train"]]
     cubes_val = [load_cube16(p, cache) for p in scenes["val"]]
     print(f"{len(cubes_train)} train / {len(cubes_val)} val scenes, device {pick_device()}")
-    best = train(cubes_train, cubes_val, train_pattern=args.pattern, iters=args.iters, out=args.out,
-                 batch=args.batch, val_every=args.val_every, seed=args.seed)
+    try:
+        best = train(cubes_train, cubes_val, train_pattern=args.pattern, iters=args.iters, out=args.out,
+                     batch=args.batch, val_every=args.val_every, seed=args.seed, max_minutes=args.max_minutes)
+    except TrainingPaused as pause:
+        print(pause)
+        sys.exit(3)
     print(f"best val PSNR {best:.2f} dB -> {args.out}")
 
 

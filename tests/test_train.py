@@ -3,7 +3,7 @@ import pytest
 import torch
 
 from msdemosaic.patterns import make_pattern
-from msdemosaic.train import make_batch, train
+from msdemosaic.train import TrainingPaused, make_batch, train
 
 
 def _smooth_cubes(n=4):
@@ -35,3 +35,38 @@ def test_train_smoke(tmp_path, pattern, use_mask):
     assert np.isfinite(best) and ck["val_psnr"] == pytest.approx(best)
     log = np.genfromtxt(out.with_suffix(".log.csv"), delimiter=",", names=True)
     assert log["train_l1"][-1] < log["train_l1"][0]
+
+
+def _weights(path):
+    return torch.load(path, map_location="cpu")["state_dict"]
+
+
+def test_resume_matches_uninterrupted_run(tmp_path):
+    cubes = _smooth_cubes()
+    kw = dict(train_pattern="random", iters=60, batch=4, val_every=20, device=torch.device("cpu"))
+    full = tmp_path / "full.pt"
+    train(cubes[:3], cubes[3:], out=full, **kw)
+
+    part = tmp_path / "part.pt"
+    with pytest.raises(TrainingPaused):
+        train(cubes[:3], cubes[3:], out=part, max_iters_this_run=20, **kw)
+    assert part.with_suffix(".state.pt").exists()
+    best = train(cubes[:3], cubes[3:], out=part, **kw)  # resumes at iteration 20
+
+    a, b = _weights(full), _weights(part)
+    assert all(torch.equal(a[k], b[k]) for k in a)
+    assert best == pytest.approx(torch.load(full, map_location="cpu")["val_psnr"])
+    log = np.genfromtxt(part.with_suffix(".log.csv"), delimiter=",", names=True)
+    assert log["iter"].tolist() == [20, 40, 60]
+    assert not part.with_suffix(".state.pt").exists()  # removed once training completes
+
+
+def test_resume_rejects_state_from_different_run(tmp_path):
+    cubes = _smooth_cubes()
+    out = tmp_path / "m.pt"
+    with pytest.raises(TrainingPaused):
+        train(cubes[:3], cubes[3:], train_pattern="imec", iters=40, out=out, batch=4, val_every=20,
+              max_iters_this_run=20, device=torch.device("cpu"))
+    with pytest.raises(ValueError):
+        train(cubes[:3], cubes[3:], train_pattern="imec", iters=80, out=out, batch=4, val_every=20,
+              device=torch.device("cpu"))

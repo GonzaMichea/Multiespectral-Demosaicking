@@ -9,7 +9,7 @@ uno que nunca vio, sin reentrenar?
 ```bash
 uv venv --python 3.12 .venv
 uv pip install -p .venv/bin/python -r requirements.txt -e .
-.venv/bin/pytest            # 42 tests
+.venv/bin/pytest            # 44 tests
 ```
 
 ## Datos
@@ -38,6 +38,13 @@ uv pip install -p .venv/bin/python -r requirements.txt -e .
 
 # 4. Póster (lee results/)
 typst compile --root . Poster/poster.typ
+```
+
+Todo en un comando, por sesiones (se puede pausar y continuar):
+
+```bash
+caffeinate -i scripts/run_all.sh 20000 cave-split 60   # entrena ~60 min y se pausa
+caffeinate -i scripts/run_all.sh 20000 cave-split 60   # el mismo comando continúa
 ```
 
 Para entrenar en Kaggle: `notebooks/kaggle_train.ipynb`.

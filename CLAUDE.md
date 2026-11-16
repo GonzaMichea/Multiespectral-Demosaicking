@@ -12,7 +12,7 @@ Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
 - **Mié 25 nov**: entrega final (informe ICIP + repositorio).
 
 **Hecho:**
-- Código completo en `msdemosaic/`; 42 tests pasan (`.venv/bin/pytest`, ~40 s).
+- Código completo en `msdemosaic/`; 44 tests pasan (`.venv/bin/pytest`, ~40 s).
 - CAVE descargado en `data/CAVE/` (32 escenas, todas cargan bien).
 - Fila WB medida en las 8 escenas de prueba: ~32,0 dB PSNR, SSIM ~0,927,
   SAM ~4,96°, casi igual en los 4 patrones (`results/table.md`).
@@ -45,7 +45,14 @@ Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
   40 000 iteraciones ≈ 2 h por red (~6 h las tres); 20 000 ≈ 1 h por red (~3 h).
 - Curva conocida de fija-IMEC (validación): 32,2–32,6 dB a 1 000 iteraciones,
   34,8 dB a 6 000, aún subiendo. No se sabe cuánto se pierde con 20 000.
-- No hay reanudación: cada entrenamiento parte de cero.
+- **Hay pausa y reanudación** (desde el 16 nov): el estado completo se guarda en
+  `checkpoints/_running_<nombre>.state.pt` en cada validación (cada 1 000
+  iteraciones). Repetir el mismo comando continúa donde quedó; las redes ya
+  terminadas se saltan. Si se mata el proceso se pierden a lo más 1 000
+  iteraciones (~2–3 min). Hay que repetir con las mismas iteraciones; si se
+  cambian, borrar antes el `.state.pt`. Probado en MPS con datos reales.
+- Tercer argumento = presupuesto en minutos: `scripts/run_all.sh 20000 cave-split 60`
+  entrena ~1 h y se pausa solo en la siguiente validación.
 - Todo en un comando (entrena imec → agnóstica → osp y, tras cada red,
   reevalúa, regenera figuras y recompila el póster):
 
