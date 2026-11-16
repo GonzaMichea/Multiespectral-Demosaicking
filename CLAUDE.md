@@ -4,7 +4,7 @@ Curso: Fotografía Computacional 2026-2, Universidad Técnica Federico Santa Mar
 Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
 (los documentos tipo paper van en inglés porque el template ICIP lo exige).
 
-## Estado actual (actualizado el lun 16 nov 2026, 16:25)
+## Estado actual (actualizado el lun 16 nov 2026, 20:00)
 
 **Fechas vigentes (hubo prórroga; el 11 nov ya no aplica):**
 - **Mié 18 nov, 14:40**: presentación de avance con **póster**. Benjamín necesita
@@ -12,7 +12,7 @@ Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
 - **Mié 25 nov**: entrega final (informe ICIP + repositorio).
 
 **Hecho:**
-- Código completo en `msdemosaic/`; 66 tests pasan (`.venv/bin/pytest`, ~1,5 min).
+- Código completo en `msdemosaic/`; 69 tests pasan (`.venv/bin/pytest`, ~1,8 min).
 - CAVE descargado en `data/CAVE/` (32 escenas, todas cargan bien).
 - Fila WB medida en las 8 escenas de prueba: ~32,0 dB PSNR, SSIM ~0,927,
   SAM ~4,96°, casi igual en los 4 patrones (`results/table.md`).
@@ -37,35 +37,37 @@ Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
   H3 +1,4 a +2,5 dB. El residuo sobre WB no funciona (las ReLU mueren).
 - `scripts/pilot.py` corre las pruebas cortas.
 
-**NO hecho — ninguna red está entrenada:**
-- `checkpoints/` está vacío. Hubo dos intentos, ambos detenidos por el usuario
-  (12 nov a 6 000/40 000 iteraciones; 16 nov a ~1 000/20 000). Los checkpoints
-  parciales se borraron.
-- **No lanzar entrenamientos sin que el usuario lo pida explícitamente.** La
-  última instrucción fue: "Deja de correr, no corras aún".
+**Entrenamiento real EN CURSO (lanzado el lun 16 nov 2026 a las 19:50):**
+- El usuario lo autorizó el 16 nov ("Ya puedes dejar corriendo lo que haya que
+  hacer"). Comando: `caffeinate -i scripts/run_all.sh 20000 cave-split`.
+- 4 redes de 20 000 iteraciones, en este orden: `fixed_imec` → `agnostic` →
+  `fixed_osp` → `conventional_imec` (sin máscara, opcional). ~43 min por red a
+  8 it/s; término estimado ~22:45. Al terminar cada red se regeneran solos
+  `results/`, `results/figs/` y `Poster/poster.pdf`.
+- Progreso: `tail -f checkpoints/<red>.out` y `cat checkpoints/run_all.out`.
+  Terminó todo cuando existe `checkpoints/ALL_DONE`.
+- Si se interrumpe (apagado, tapa cerrada mucho rato, proceso muerto): el mismo
+  comando continúa donde quedó (probado: reanudó desde la iteración 1 000).
+- Primer dato: fija-IMEC 34,05 dB en validación a las 2 000 iteraciones.
+- **Antes de lanzar otro entrenamiento, preguntar al usuario** (ha detenido
+  entrenamientos dos veces por batería o por tener que cerrar el Mac).
 
 **Falta, en orden:**
-1. Probar `scripts/run_all.sh` de punta a punta con pocas iteraciones (nunca
-   corrió completo en su versión con pausa).
-2. Actualizar `Poster/poster.typ`: entrada de la red, línea base (ya no "sin
-   máscara"), parámetros (1,07 M) e iteraciones reales.
-3. Opcional: red convencional sin máscara como cuarta fila (`--pattern imec
-   --input mosaic --out checkpoints/conventional_imec.pt`); requiere agregarla
-   a `METHOD_ORDER`, figuras y póster.
-4. Entrenar las 3 redes (ver "Entrenamiento").
-5. `evaluate_all` + `figures` → tabla H1–H3 y figuras finales. Revisar las
-   figuras a ojo.
-6. Recompilar el póster y revisarlo; confirmar formato (asumido A1 vertical).
-7. `LaTeX_template/report.tex` (informe ICIP en inglés, a partir de
+1. Cuando exista `checkpoints/ALL_DONE`: revisar `results/table.md`,
+   `results/hypotheses.json` (claves `paired` y `training`), las figuras a ojo y
+   el póster recompilado; hacer commit de `results/` y del póster.
+2. Confirmar formato del póster con el profesor (asumido A1 vertical).
+3. Si las curvas de validación siguen subiendo a las 20 000 iteraciones,
+   reentrenar a 40 000 para el informe (jue 19 – dom 22 nov).
+4. `LaTeX_template/report.tex` (informe ICIP en inglés, a partir de
    `proposal.tex`; toda cifra debe salir de `results/`).
-8. Revisión final del código (nadie más lo ha revisado).
-9. Nivel C (ruido) no se ha tocado; solo si sobra tiempo.
+5. Revisión final del código (nadie más lo ha revisado).
+6. Nivel C (ruido) no se ha tocado; solo si sobra tiempo.
 
 ## Entrenamiento
 
-- Velocidad medida en el Mac M5 con MPS, lote 32: ~6,8 it/s con la entrada nueva
-  (20 000 iteraciones ≈ 50 min por red; 40 000 ≈ 100 min).
-  40 000 iteraciones ≈ 2 h por red (~6 h las tres); 20 000 ≈ 1 h por red (~3 h).
+- Velocidad medida en el Mac M5 con MPS, lote 32: ~8 it/s con la entrada nueva
+  (20 000 iteraciones ≈ 43 min por red; 40 000 ≈ 85 min).
 - Curva conocida de fija-IMEC (validación): 32,2–32,6 dB a 1 000 iteraciones,
   34,8 dB a 6 000, aún subiendo. No se sabe cuánto se pierde con 20 000.
 - **Hay pausa y reanudación** (desde el 16 nov): el estado completo se guarda en
@@ -76,8 +78,8 @@ Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
   cambian, borrar antes el `.state.pt`. Probado en MPS con datos reales.
 - Tercer argumento = presupuesto en minutos: `scripts/run_all.sh 20000 cave-split 60`
   entrena ~1 h y se pausa solo en la siguiente validación.
-- Todo en un comando (entrena imec → agnóstica → osp y, tras cada red,
-  reevalúa, regenera figuras y recompila el póster):
+- Todo en un comando (entrena fija-IMEC → agnóstica → fija-OSP → convencional sin
+  máscara y, tras cada red, reevalúa, regenera figuras y recompila el póster):
 
   ```bash
   caffeinate -i scripts/run_all.sh 20000 cave-split   # o 40000

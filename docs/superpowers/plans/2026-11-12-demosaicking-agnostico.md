@@ -40,17 +40,20 @@ Donde este plan diga otra cosa, vale lo siguiente:
 
 - [x] **T15: entrada `wb` y modos de entrada** en `model.py`/`train.py` (hecho, 66 tests).
 - [x] **T16: desviación muestral y diferencias pareadas** en `evaluate_all.py` (hecho).
-- [ ] **T17: probar `scripts/run_all.sh` de punta a punta** con pocas iteraciones
-  (p. ej. `scripts/run_all.sh 30 cave-split`), revisar que genera los 3
-  checkpoints, `results/` y el póster; después borrar `checkpoints/` y
-  restaurar `results/` y `Poster/poster.pdf` con `git checkout`.
-- [ ] **T18: póster** — describir la entrada nueva, cambiar la línea base (ya no
-  "sin máscara"), parámetros 1,07 M, iteraciones reales.
-- [ ] **T19 (opcional): red convencional sin máscara** como cuarta fila
-  (`conventional_imec`): agregar a `METHOD_ORDER`, `hypotheses`
-  (`h1_drop_db_conventional`), figuras y póster; entrenar al final.
-- [ ] **T12 (entrenamiento real):** `caffeinate -i scripts/run_all.sh 20000 cave-split`
-  (~2,5 h) o 40 000 (~5 h, de noche). Orden: fija-IMEC → agnóstica → fija-OSP.
+- [x] **T17: `scripts/run_all.sh` probado de punta a punta** (16 nov): 4 redes de
+  30 iteraciones → checkpoints, tabla, figuras y póster en 2:40; además se
+  interrumpió y relanzó el entrenamiento real y reanudó desde la iteración 1 000.
+- [x] **T18: póster** actualizado: entrada nueva, línea base con la misma
+  entrada, 1,07 M de parámetros, iteraciones leídas de `hypotheses.json`.
+- [x] **T19: red convencional sin máscara** (`conventional_imec`, `--input
+  mosaic`): fila opcional en `METHOD_ORDER`, `h1_drop_db_conventional`, figuras
+  y póster. Se entrena al final de `run_all.sh`.
+- [ ] **T12 (entrenamiento real): EN CURSO.** Lanzado el lun 16 nov a las 19:50
+  con `caffeinate -i scripts/run_all.sh 20000 cave-split`. Orden: fija-IMEC →
+  agnóstica → fija-OSP → convencional sin máscara. ~43 min por red a 8 it/s;
+  término estimado ~22:45. Si se interrumpe, el mismo comando continúa.
+- [ ] **T20: revisar resultados** cuando exista `checkpoints/ALL_DONE`: tabla,
+  `hypotheses.json` (incluye `paired` y `training`), figuras a ojo y póster.
 
 ### Calendario vigente
 

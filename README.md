@@ -9,7 +9,7 @@ uno que nunca vio, sin reentrenar?
 ```bash
 uv venv --python 3.12 .venv
 uv pip install -p .venv/bin/python -r requirements.txt -e .
-.venv/bin/pytest            # 66 tests
+.venv/bin/pytest            # 69 tests
 ```
 
 ## Datos
@@ -25,10 +25,12 @@ uv pip install -p .venv/bin/python -r requirements.txt -e .
 ## Uso
 
 ```bash
-# 1. Entrenar (≈ 100 min por red en un Mac M5 con MPS, 40 000 iteraciones)
-.venv/bin/python -m msdemosaic.train --pattern imec   --data-mode cave-split --out checkpoints/fixed_imec.pt
-.venv/bin/python -m msdemosaic.train --pattern osp    --data-mode cave-split --out checkpoints/fixed_osp.pt
-.venv/bin/python -m msdemosaic.train --pattern random --data-mode cave-split --out checkpoints/agnostic.pt
+# 1. Entrenar (≈ 43 min por red en un Mac M5 con MPS, 20 000 iteraciones)
+.venv/bin/python -m msdemosaic.train --pattern imec   --data-mode cave-split --iters 20000 --out checkpoints/fixed_imec.pt
+.venv/bin/python -m msdemosaic.train --pattern random --data-mode cave-split --iters 20000 --out checkpoints/agnostic.pt
+.venv/bin/python -m msdemosaic.train --pattern osp    --data-mode cave-split --iters 20000 --out checkpoints/fixed_osp.pt
+# opcional: red convencional sin máscara (línea base de la propuesta original)
+.venv/bin/python -m msdemosaic.train --pattern imec --input mosaic --data-mode cave-split --iters 20000 --out checkpoints/conventional_imec.pt
 
 # 2. Evaluar métodos × patrones × escenas → results/{per_scene,per_band,summary}.csv, table.md, table.tex, hypotheses.json
 .venv/bin/python -m msdemosaic.evaluate_all --data-mode cave-split
