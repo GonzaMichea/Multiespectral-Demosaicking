@@ -22,12 +22,14 @@ from .simulate import simulate
 
 COLORS = {
     "wb": "#7f7f7f",
+    "conventional_imec": "#9db8d9",
     "fixed_imec": "#2a5596",
     "fixed_osp": "#e8822c",
     "agnostic": "#9b1822",
 }
 LABELS = {
     "wb": "WB",
+    "conventional_imec": "U-Net no mask (IMEC)",
     "fixed_imec": "U-Net fixed-IMEC",
     "fixed_osp": "U-Net fixed-OSP",
     "agnostic": "U-Net agnostic",
@@ -78,7 +80,7 @@ def plot_psnr_bars(rows: list[dict], out: Path) -> None:
     ax.set_ylabel("PSNR (dB)")
     ax.set_ylim(bottom=10)
     ax.grid(axis="y", alpha=0.3)
-    ax.legend(fontsize=8, ncol=2, loc="upper center", bbox_to_anchor=(0.5, 1.25), frameon=False)
+    ax.legend(fontsize=8, ncol=3, loc="upper center", bbox_to_anchor=(0.5, 1.25), frameon=False)
     _save(fig, out, "psnr_bars")
 
 

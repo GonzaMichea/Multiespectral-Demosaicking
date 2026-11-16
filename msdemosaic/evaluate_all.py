@@ -17,9 +17,12 @@ from .patterns import TEST_PATTERNS, make_pattern
 from .simulate import simulate
 from .wb import wb
 
-METHOD_ORDER = ("wb", "fixed_imec", "fixed_osp", "agnostic")
+# "conventional_imec" is the optional mask-less network (--input mosaic) trained on IMEC only.
+METHOD_ORDER = ("wb", "conventional_imec", "fixed_imec", "fixed_osp", "agnostic")
 METRICS = ("psnr", "ssim", "sam")
-# Pattern each fixed network was trained on.
+# Pattern each single-pattern network was trained on.
+_TRAINED_ON = {"conventional_imec": "imec", "fixed_imec": "imec", "fixed_osp": "osp"}
+# Fixed networks with the same input as the agnostic one: the pairs compared in H2 and H3.
 _SEEN = {"fixed_imec": "imec", "fixed_osp": "osp"}
 
 
@@ -70,11 +73,12 @@ def hypotheses(summary: list[dict]) -> dict:
     def drop(fixed):
         if fixed not in methods:
             return None
-        seen = _SEEN[fixed]
+        seen = _TRAINED_ON[fixed]
         unseen = [p[(fixed, pat)] for pat in TEST_PATTERNS if pat != seen]
         return p[(fixed, seen)] - float(np.mean(unseen))
 
-    out = {"h1_drop_db": drop("fixed_imec"), "h1_drop_db_osp": drop("fixed_osp")}
+    out = {"h1_drop_db": drop("fixed_imec"), "h1_drop_db_osp": drop("fixed_osp"),
+           "h1_drop_db_conventional": drop("conventional_imec")}
     fixed_present = [f for f in _SEEN if f in methods]
     if "agnostic" not in methods or not fixed_present:
         out.update(h2_gap_db=None, h2_holds=None, h3_margin_db=None, h3_holds=None)
@@ -124,6 +128,21 @@ def paired_differences(rows: list[dict]) -> dict:
                 entry["scenes_agnostic_better"] = int((diffs > 0).sum())
                 out["h3"][f"{fixed}@{pattern}"] = entry
     return out
+
+
+def training_info(checkpoints: Path) -> dict:
+    """Iterations trained and best validation PSNR of every finished network, from its log."""
+    info = {}
+    for name in METHOD_ORDER[1:]:
+        log = Path(checkpoints) / f"{name}.log.csv"
+        if not log.exists():
+            continue
+        with open(log) as f:
+            rows = list(csv.DictReader(f))
+        if rows:
+            info[name] = {"iters": max(int(float(r["iter"])) for r in rows),
+                          "best_val_psnr": max(float(r["val_psnr"]) for r in rows)}
+    return info
 
 
 def _cell(summary_index, method, pattern, metric):
@@ -207,6 +226,7 @@ def main() -> None:
     write_tables(summary, args.out)
     hyp = hypotheses(summary)
     hyp["paired"] = paired_differences(rows)
+    hyp["training"] = training_info(args.checkpoints)
     hyp["data_mode"] = args.data_mode
     hyp["num_test_scenes"] = len(cubes)
     (args.out / "hypotheses.json").write_text(json.dumps(hyp, indent=2) + "\n")

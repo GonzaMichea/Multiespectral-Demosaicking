@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from msdemosaic.evaluate_all import hypotheses, paired_differences, run_grid, summarize
+from msdemosaic.evaluate_all import METHOD_ORDER, hypotheses, paired_differences, run_grid, summarize, training_info
 from msdemosaic.wb import wb
 
 
@@ -70,3 +70,27 @@ def test_paired_differences_per_scene():
     assert "osp" not in p["h2"]  # no fixed_osp rows -> no entry
     assert paired_differences([r for r in rows if r["method"] != "agnostic"]) == {"h2": {}, "h3": {}}
 
+
+
+def test_conventional_network_is_reported_in_h1_only():
+    s = [{"method": m, "pattern": p, "psnr_mean": v} for m, vals in {
+        "conventional_imec": (35, 23, 22, 24), "fixed_imec": (36, 33, 32, 32), "agnostic": (35, 35, 35, 35),
+    }.items() for p, v in zip(("imec", "osp", "btes", "random"), vals)]
+    h = hypotheses(s)
+    assert h["h1_drop_db_conventional"] == pytest.approx(35 - 23.0)
+    assert h["h1_drop_db"] == pytest.approx(36 - 97 / 3)
+    assert set(h["h2_gap_db"]) == {"imec"} and len(h["h3_margin_db"]) == 3  # only the same-input fixed networks
+    assert hypotheses([r for r in s if r["method"] == "agnostic"])["h1_drop_db_conventional"] is None
+
+
+def test_method_order_lists_the_conventional_baseline_before_the_fixed_networks():
+    assert METHOD_ORDER == ("wb", "conventional_imec", "fixed_imec", "fixed_osp", "agnostic")
+
+
+def test_training_info_reads_iterations_from_the_logs(tmp_path):
+    (tmp_path / "agnostic.log.csv").write_text("iter,train_l1,val_psnr\n1000,0.02,31.5\n2000,0.01,33.25\n3000,0.01,33.0\n")
+    (tmp_path / "fixed_imec.log.csv").write_text("iter,train_l1,val_psnr\n500,0.02,30.0\n")
+    (tmp_path / "_running_fixed_osp.log.csv").write_text("iter,train_l1,val_psnr\n500,0.02,30.0\n")  # unfinished: ignored
+    info = training_info(tmp_path)
+    assert info == {"agnostic": {"iters": 3000, "best_val_psnr": 33.25}, "fixed_imec": {"iters": 500, "best_val_psnr": 30.0}}
+    assert training_info(tmp_path / "missing") == {}

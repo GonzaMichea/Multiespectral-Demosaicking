@@ -17,15 +17,19 @@
 // === Datos de resultados ===
 #let rows = csv("../results/summary.csv", row-type: dictionary)
 #let hyp = json("../results/hypotheses.json")
+#let has(m) = rows.any(r => r.method == m)
+// La red sin máscara es opcional: su fila aparece solo cuando tiene resultados.
 #let METHODS = (
   ("wb", [WB (clásico)]),
+  ("conventional_imec", [U-Net sin máscara (IMEC)]),
   ("fixed_imec", [U-Net fija-IMEC]),
   ("fixed_osp", [U-Net fija-OSP]),
   ("agnostic", [*U-Net agnóstica*]),
-)
+).filter(((m, label)) => m != "conventional_imec" or has(m))
 #let PATTERNS = ("imec", "osp", "btes", "random")
-#let SEEN = (fixed_imec: "imec", fixed_osp: "osp")
-#let has(m) = rows.any(r => r.method == m)
+#let SEEN = (conventional_imec: "imec", fixed_imec: "imec", fixed_osp: "osp")
+#let training = hyp.at("training", default: (:))
+#let miles(n) = if n >= 1000 { str(calc.quo(n, 1000)) + " " + ("000" + str(calc.rem(n, 1000))).slice(-3) } else { str(n) }
 #let fmt(x, digits: 2) = {
   let s = str(calc.round(float(x), digits: digits))
   s.replace(".", ",").replace("-", "−")
@@ -106,15 +110,16 @@
         flecha,
         nodo(fill: ACCENT-DARK, stroke: ACCENT-DARK)[
           #text(fill: white, weight: "bold")[U-Net pequeña] \
-          #text(fill: white, size: 0.7em)[1,06 M parámetros · pérdida $ell_1$]
+          #text(fill: white, size: 0.7em)[1,07 M parámetros · pérdida $ell_1$]
         ],
         flecha,
         nodo[Cubo $hat(bold(X))$ \ #text(size: 0.7em)[$H times W times 16$]],
       ))
       #v(0.2em)
       #align(center, text(size: 0.9em)[$bold(Y) = sum_(k=1)^(16) bold(X)_k dot.o bold(C)_k$ #h(1.2em) $hat(bold(X)) = f_theta (bold(Y), bold(M))$])
+      - *Entrada*: la red recibe las muestras separadas por banda ($bold(Y) dot.o bold(M)$), la máscara $bold(M)$ y una interpolación inicial WB [2], que refina.
       - *Entrenamiento agnóstico*: cada lote usa un patrón aleatorio distinto (cada banda aparece igual número de veces) → la red no puede memorizar un patrón, tiene que #hl[leer la máscara].
-      - *Líneas base*: WB [2] y la misma U-Net _sin máscara_, entrenada con un solo patrón (IMEC u OSP).
+      - *Líneas base*: WB [2] y la misma U-Net, con la misma entrada, entrenada con un solo patrón (IMEC u OSP)#if has("conventional_imec") [; además, una U-Net convencional _sin máscara_ entrenada con IMEC].
     ]
 
     #seccion[4 · Patrones de prueba][
@@ -130,7 +135,7 @@
       #let n-test = hyp.num_test_scenes
       - *Datos*: #if hyp.data_mode == "cave-split" [CAVE [5], 32 escenas de 512 × 512: 21 para entrenar, 3 para validar y #n-test para probar (partición fija).] else [entrenamiento con 220 escenas de ARAD-1K (30 de validación); prueba con las #n-test escenas de CAVE [5].]
       - 16 de 31 bandas (400–700 nm), filtros ideales, sin ruido.
-      - Parches de 64 × 64, 40 000 iteraciones, Adam, Mac M5 (MPS).
+      - Parches de 64 × 64#if training.len() > 0 [, #miles(calc.max(..training.values().map(t => t.iters))) iteraciones por red], Adam, Mac M5 (MPS).
       - *Métricas*: PSNR, SSIM y SAM (media ± desv. sobre las escenas de prueba).
     ]
 
@@ -196,7 +201,7 @@
       #block(fill: ACCENT.lighten(90%), stroke: (left: 4pt + ACCENT), inset: 0.6em, width: 100%)[
         #set text(size: 0.9em)
         *Estado de las hipótesis*
-        - *H1*: #if hyp.h1_drop_db == none [en curso.] else [la red fija-IMEC pierde #hl[#fmt(hyp.h1_drop_db) dB] en promedio al pasar a patrones no vistos#if hyp.h1_drop_db_osp != none [ (fija-OSP: #fmt(hyp.h1_drop_db_osp) dB)].]
+        - *H1*: #if hyp.h1_drop_db == none [en curso.] else [la red fija-IMEC pierde #hl[#fmt(hyp.h1_drop_db) dB] en promedio al pasar a patrones no vistos#if hyp.h1_drop_db_osp != none [ (fija-OSP: #fmt(hyp.h1_drop_db_osp) dB)]#if hyp.at("h1_drop_db_conventional", default: none) != none [; la red sin máscara pierde #hl[#fmt(hyp.h1_drop_db_conventional) dB]].]
         - *H2*: #if hyp.h2_gap_db == none [en curso.] else [
             diferencia fija − agnóstica: #hyp.h2_gap_db.pairs().map(((k, v)) => [#upper(k) #fmt(v) dB]).join[, ] → #if hyp.h2_holds [#hl[se cumple] (< 1 dB).] else [#hl[no se cumple] con el umbral de 1 dB.]
           ]
