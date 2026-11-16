@@ -4,7 +4,7 @@ Curso: Fotografía Computacional 2026-2, Universidad Técnica Federico Santa Mar
 Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
 (los documentos tipo paper van en inglés porque el template ICIP lo exige).
 
-## Estado actual (actualizado el lun 16 nov 2026, 14:20)
+## Estado actual (actualizado el lun 16 nov 2026, 15:45)
 
 **Fechas vigentes (hubo prórroga; el 11 nov ya no aplica):**
 - **Mié 18 nov, 14:40**: presentación de avance con **póster**. Benjamín necesita
@@ -19,6 +19,17 @@ Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
 - `results/`, `results/figs/` y `Poster/poster.pdf` regenerados el 16 nov **solo
   con WB**; las filas de las redes dicen "en curso".
 - README, `scripts/run_all.sh` y notebook de Kaggle (este último sin probar).
+
+**Revisión del 16 nov (leer `docs/revision-2026-11-16.md` antes de entrenar):**
+- Patrones, bandas, WB, simulador y PSNR verificados contra el paper y su código
+  (el WB reproduce la Tabla I con 0,13 dB de diferencia).
+- Pruebas cortas (2 000 iteraciones, escenas de validación): fija-IMEC 35,2 dB
+  vs WB 32,6 (bien); **agnóstica [Y, M] solo 28,3 dB** (riesgo alto para H2);
+  fija-OSP sin máscara pierde 1,45 dB frente a con máscara (OSP tiene período
+  16 en filas y la U-Net solo distingue posiciones módulo 4).
+- Decisiones pendientes del usuario: (1) cambiar la entrada de la agnóstica
+  (probar [Y⊙M, M]); (2) dar máscara también a las redes fijas; (3) probar
+  `run_all.sh` de punta a punta. `scripts/pilot.py` corre las pruebas cortas.
 
 **NO hecho — ninguna red está entrenada:**
 - `checkpoints/` está vacío. Hubo dos intentos, ambos detenidos por el usuario

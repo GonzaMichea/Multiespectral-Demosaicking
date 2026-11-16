@@ -84,7 +84,7 @@ incluye ni su artículo ni su código:
 | Red | TRevSCI, reentrenada para cada MSFA | U-Net pequeña (≈ 1,06 M parámetros) que recibe la máscara del patrón como entrada |
 | Patrones | Propone OSP y lo compara con otros | Usa IMEC, OSP, BTES y uno aleatorio solo como prueba; no diseña patrones |
 | Código | MATLAB | Python / PyTorch, escrito desde cero |
-| Datos | Simulados y reales | Solo simulados a partir de CAVE (16 bandas, filtros ideales, sin ruido) |
+| Datos | Simulados a partir de CAVE (256 × 256, 8 bits); filtros ideales y respuestas espectrales reales de la cámara IMEC | Simulados a partir de CAVE (512 × 512, 16 bandas, filtros ideales, sin ruido) |
 
 Del artículo solo se toma la fórmula del patrón OSP, `(7·i + 4·j) mod 16 + 1` (con `i`, `j` desde 1), para
 usarlo como patrón de prueba; no se reutiliza código.
