@@ -55,6 +55,33 @@ Para entrenar en Kaggle: `notebooks/kaggle_train.ipynb`.
 | `msdemosaic/evaluate_all.py` | Tabla completa e hipótesis H1–H3 |
 | `msdemosaic/figures.py` | Figuras de resultados |
 
+## Material de referencia (no incluido en este repositorio)
+
+Este proyecto parte de una limitación que reconoce el siguiente trabajo, pero no
+incluye ni su artículo ni su código:
+
+- **Artículo**: N. Diaz, A. Alvarado, P. Meza, F. Guzmán y E. Vera, "Multispectral
+  Filter Array Design by Optimal Sphere Packing", *IEEE Transactions on Image
+  Processing*, vol. 32, pp. 3634–3649, 2023. El PDF tiene copyright de IEEE, por
+  lo que no se redistribuye aquí.
+- **Código MATLAB del artículo**:
+  <https://github.com/nelson10/DemosaickingMultispectral3DSpherePacking>. Su
+  licencia lo limita a uso en investigación y prohíbe republicarlo, por lo que
+  solo se enlaza.
+
+### Diferencias con ese trabajo
+
+| | Diaz et al. (2023) | Este proyecto |
+|---|---|---|
+| Objetivo | Diseñar un MSFA óptimo (empaquetamiento de esferas, OSP) | Reconstruir con cualquier MSFA sin reentrenar |
+| Red | TRevSCI, reentrenada para cada MSFA | U-Net pequeña (≈ 1,06 M parámetros) que recibe la máscara del patrón como entrada |
+| Patrones | Propone OSP y lo compara con otros | Usa IMEC, OSP, BTES y uno aleatorio solo como prueba; no diseña patrones |
+| Código | MATLAB | Python / PyTorch, escrito desde cero |
+| Datos | Simulados y reales | Solo simulados a partir de CAVE (16 bandas, filtros ideales, sin ruido) |
+
+Del artículo solo se toma la fórmula del patrón OSP, `(7·i + 4·j) mod 16`, para
+usarlo como patrón de prueba; no se reutiliza código.
+
 ## Resultados
 
 Ver `results/table.md` y `results/hypotheses.json` (se regeneran con el paso 2).
