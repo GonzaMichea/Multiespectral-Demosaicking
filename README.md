@@ -79,7 +79,7 @@ incluye ni su artículo ni su código:
 | Código | MATLAB | Python / PyTorch, escrito desde cero |
 | Datos | Simulados y reales | Solo simulados a partir de CAVE (16 bandas, filtros ideales, sin ruido) |
 
-Del artículo solo se toma la fórmula del patrón OSP, `(7·i + 4·j) mod 16`, para
+Del artículo solo se toma la fórmula del patrón OSP, `(7·i + 4·j) mod 16 + 1` (con `i`, `j` desde 1), para
 usarlo como patrón de prueba; no se reutiliza código.
 
 ## Resultados
