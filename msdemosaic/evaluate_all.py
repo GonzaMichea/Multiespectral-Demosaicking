@@ -40,8 +40,14 @@ def run_grid(
     return rows, band_rows
 
 
+def _sample_std(values) -> float:
+    """Sample standard deviation (ddof=1); 0 when there is a single value."""
+    values = np.asarray(values, dtype=np.float64)
+    return float(values.std(ddof=1)) if values.size > 1 else 0.0
+
+
 def summarize(rows: list[dict]) -> list[dict]:
-    """Mean and std over scenes for each (method, pattern)."""
+    """Mean and sample std over scenes for each (method, pattern)."""
     groups: dict[tuple, list[dict]] = {}
     for r in rows:
         groups.setdefault((r["method"], r["pattern"]), []).append(r)
@@ -51,7 +57,7 @@ def summarize(rows: list[dict]) -> list[dict]:
         for metric in METRICS:
             values = np.array([g[metric] for g in group])
             entry[f"{metric}_mean"] = float(values.mean())
-            entry[f"{metric}_std"] = float(values.std())
+            entry[f"{metric}_std"] = _sample_std(values)
         summary.append(entry)
     return summary
 
@@ -86,6 +92,37 @@ def hypotheses(summary: list[dict]) -> dict:
         h3_margin_db=margins,
         h3_holds=all(m > 0 for m in margins.values()),
     )
+    return out
+
+
+def paired_differences(rows: list[dict]) -> dict:
+    """Per-scene PSNR differences behind H2 and H3 (paired by scene).
+
+    h2[pattern]: fixed - agnostic on the pattern the fixed network was trained on.
+    h3["fixed@pattern"]: agnostic - fixed on a pattern the fixed network never saw.
+    Each entry has mean, sample std and n over scenes. Scene-to-scene PSNR spread is
+    several dB, so these paired numbers are far tighter than differences of means.
+    """
+    psnr = {(r["method"], r["pattern"], r["scene"]): r["psnr"] for r in rows}
+    methods = {m for m, _, _ in psnr}
+    scenes = sorted({s for _, _, s in psnr})
+    out: dict = {"h2": {}, "h3": {}}
+    if "agnostic" not in methods:
+        return out
+    for fixed, seen in _SEEN.items():
+        if fixed not in methods:
+            continue
+        for pattern in TEST_PATTERNS:
+            sign = 1.0 if pattern == seen else -1.0  # H2: fixed - agnostic; H3: agnostic - fixed
+            diffs = np.array([sign * (psnr[(fixed, pattern, s)] - psnr[("agnostic", pattern, s)]) for s in scenes])
+            entry = {"mean": float(diffs.mean()), "std": _sample_std(diffs), "n": int(diffs.size),
+                     "min": float(diffs.min()), "max": float(diffs.max())}
+            if pattern == seen:
+                entry["scenes_within_1db"] = int((diffs < 1.0).sum())
+                out["h2"][pattern] = entry
+            else:
+                entry["scenes_agnostic_better"] = int((diffs > 0).sum())
+                out["h3"][f"{fixed}@{pattern}"] = entry
     return out
 
 
@@ -169,6 +206,7 @@ def main() -> None:
     _write_csv(args.out / "summary.csv", summary)
     write_tables(summary, args.out)
     hyp = hypotheses(summary)
+    hyp["paired"] = paired_differences(rows)
     hyp["data_mode"] = args.data_mode
     hyp["num_test_scenes"] = len(cubes)
     (args.out / "hypotheses.json").write_text(json.dumps(hyp, indent=2) + "\n")

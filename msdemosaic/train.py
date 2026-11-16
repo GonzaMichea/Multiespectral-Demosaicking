@@ -4,9 +4,13 @@
     python -m msdemosaic.train --pattern osp    --data-mode cave-split --out checkpoints/fixed_osp.pt
     python -m msdemosaic.train --pattern random --data-mode cave-split --out checkpoints/agnostic.pt
 
---pattern imec/osp trains a fixed-pattern network (mosaic only).
---pattern random trains the pattern-agnostic network (mosaic + mask), drawing a
-new random balanced pattern for every batch.
+--pattern imec/osp trains a fixed-pattern network (always the same MSFA).
+--pattern random trains the pattern-agnostic network, drawing a new random
+balanced pattern for every batch.
+
+Every network gets the same input by default (--input wb), so fixed and agnostic
+networks differ only in the patterns they are trained on. --input mosaic_mask and
+--input mosaic are the ablations described in msdemosaic/model.py.
 """
 import argparse
 import sys
@@ -18,7 +22,7 @@ import torch
 import torch.nn.functional as F
 
 from .data import sample_patch
-from .model import UNet, pick_device, save_checkpoint
+from .model import INPUT_MODES, UNet, pick_device, save_checkpoint
 from .patterns import make_pattern, pattern_to_mask, sample_training_pattern
 
 VAL_PATCHES = 256
@@ -64,7 +68,7 @@ def _validate(model: UNet, val_set, device) -> float:
     for y, m, x in val_set:
         for s in range(0, len(x), 64):
             yb, mb, xb = (t[s : s + 64].to(device) for t in (y, m, x))
-            pred = model(yb, mb if model.use_mask else None).clamp(0, 1)
+            pred = model(yb, mb).clamp(0, 1)
             sq_err += F.mse_loss(pred, xb, reduction="sum").item()
             count += xb.numel()
     model.train()
@@ -81,10 +85,13 @@ def _save_state(path: Path, **state) -> None:
     tmp.replace(path)  # atomic: a kill during the write never corrupts the state
 
 
-def train(cubes_train, cubes_val, *, train_pattern: str, iters: int, out, batch: int = 32,
-          lr: float = 1e-3, val_every: int = 1000, seed: int = 0, device=None,
+def train(cubes_train, cubes_val, *, train_pattern: str, iters: int, out, input_mode: str = "wb",
+          batch: int = 32, lr: float = 1e-3, val_every: int = 1000, seed: int = 0, device=None,
           max_minutes: float | None = None, max_iters_this_run: int | None = None) -> float:
     """Train and save the best checkpoint (by validation PSNR) to `out`. Returns that PSNR.
+
+    `train_pattern` is "imec"/"osp" (fixed network) or "random" (pattern-agnostic);
+    `input_mode` is one of `msdemosaic.model.INPUT_MODES`.
 
     Resumable: the full training state is written to `<out>.state.pt` at every
     validation. If that file exists, training continues from it (the result is
@@ -92,12 +99,14 @@ def train(cubes_train, cubes_val, *, train_pattern: str, iters: int, out, batch:
     the run stops at the next validation after the budget and raises
     TrainingPaused. A killed run loses at most `val_every` iterations.
     """
+    if train_pattern == "random" and input_mode == "mosaic":
+        raise ValueError("a network without the mask cannot be trained on random patterns")
     out = Path(out)
     device = device or pick_device()
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
 
-    model = UNet(use_mask=(train_pattern == "random")).to(device)
+    model = UNet(input_mode=input_mode).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=iters, eta_min=1e-5)
     val_set = _make_val_set(cubes_val, train_pattern)
@@ -105,8 +114,8 @@ def train(cubes_train, cubes_val, *, train_pattern: str, iters: int, out, batch:
     out.parent.mkdir(parents=True, exist_ok=True)
     log_path = out.with_suffix(".log.csv")
     state_path = out.with_suffix(".state.pt")
-    config = {"train_pattern": train_pattern, "iters": iters, "batch": batch, "lr": lr, "seed": seed,
-              "val_every": val_every}
+    config = {"train_pattern": train_pattern, "input_mode": input_mode, "iters": iters, "batch": batch,
+              "lr": lr, "seed": seed, "val_every": val_every}
 
     first_it, best = 1, -np.inf
     if state_path.exists():
@@ -128,7 +137,7 @@ def train(cubes_train, cubes_val, *, train_pattern: str, iters: int, out, batch:
     running, start = [], time.time()
     for it in range(first_it, iters + 1):
         y, m, x = (t.to(device) for t in make_batch(cubes_train, rng, train_pattern, batch))
-        loss = F.l1_loss(model(y, m if model.use_mask else None), x)
+        loss = F.l1_loss(model(y, m), x)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
@@ -165,6 +174,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--pattern", choices=("imec", "osp", "random"), required=True)
+    parser.add_argument("--input", choices=INPUT_MODES, default="wb", dest="input_mode")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--data-mode", choices=("arad", "cave-split"), required=True)
     parser.add_argument("--iters", type=int, default=40000)
@@ -182,8 +192,9 @@ def main() -> None:
     cubes_val = [load_cube16(p, cache) for p in scenes["val"]]
     print(f"{len(cubes_train)} train / {len(cubes_val)} val scenes, device {pick_device()}")
     try:
-        best = train(cubes_train, cubes_val, train_pattern=args.pattern, iters=args.iters, out=args.out,
-                     batch=args.batch, val_every=args.val_every, seed=args.seed, max_minutes=args.max_minutes)
+        best = train(cubes_train, cubes_val, train_pattern=args.pattern, input_mode=args.input_mode,
+                     iters=args.iters, out=args.out, batch=args.batch, val_every=args.val_every, seed=args.seed,
+                     max_minutes=args.max_minutes)
     except TrainingPaused as pause:
         print(pause)
         sys.exit(3)

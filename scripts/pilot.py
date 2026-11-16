@@ -50,13 +50,54 @@ class SparseResUNet(UNet):
         d2 = self.dec2(torch.cat([self.up2(b), e2], 1)); d1 = self.dec1(torch.cat([self.up1(d2), e1], 1))
         return wb_torch(sparse, m) + self.out(d1)[..., :H, :W]
 
+class SparseUNet(SparseResUNet):
+    """Input [Y*M, M]; direct output, or WB + residual with a zero-initialised last layer."""
+    def __init__(self, residual, base=48):
+        super().__init__(base=base)
+        self.residual = residual
+        if residual:
+            nn.init.zeros_(self.out.weight); nn.init.zeros_(self.out.bias)
+    def forward(self, y, m=None):
+        sparse = y * m
+        x = torch.cat([sparse, m], 1)
+        H, W = x.shape[-2:]
+        ph, pw = (-H) % 4, (-W) % 4
+        if ph or pw:
+            x = F.pad(x, (0, pw, 0, ph), mode="reflect")
+        e1 = self.enc1(x); e2 = self.enc2(F.max_pool2d(e1, 2)); b = self.bottleneck(F.max_pool2d(e2, 2))
+        d2 = self.dec2(torch.cat([self.up2(b), e2], 1)); d1 = self.dec1(torch.cat([self.up1(d2), e1], 1))
+        out = self.out(d1)[..., :H, :W]
+        return wb_torch(sparse, m) + out if self.residual else out
+
+class WbInUNet(SparseUNet):
+    """Input [WB(Y, M), Y*M, M] (48 ch); direct output."""
+    def __init__(self, base=48):
+        super().__init__(residual=False, base=base)
+        self.enc1[0] = nn.Conv2d(48, base, 3, padding=1)
+    def forward(self, y, m=None):
+        sparse = y * m
+        x = torch.cat([wb_torch(sparse, m), sparse, m], 1)
+        H, W = x.shape[-2:]
+        ph, pw = (-H) % 4, (-W) % 4
+        if ph or pw:
+            x = F.pad(x, (0, pw, 0, ph), mode="reflect")
+        e1 = self.enc1(x); e2 = self.enc2(F.max_pool2d(e1, 2)); b = self.bottleneck(F.max_pool2d(e2, 2))
+        d2 = self.dec2(torch.cat([self.up2(b), e2], 1)); d1 = self.dec1(torch.cat([self.up1(d2), e1], 1))
+        return self.out(d1)[..., :H, :W]
+
+LOSSES = {"l1": F.l1_loss, "huber": lambda p, x: F.smooth_l1_loss(p, x, beta=0.01)}
+
 def build(kind):
+    if kind == "wbin": return WbInUNet()
     if kind == "nomask": return UNet(use_mask=False)
     if kind == "mask": return UNet(use_mask=True)
-    if kind == "sparse_res": return SparseResUNet()
+    if kind == "sparse_res": return SparseResUNet()          # random-init last layer (collapsed to WB)
+    if kind == "sparse": return SparseUNet(residual=False)
+    if kind == "sparse_res0": return SparseUNet(residual=True)
     raise ValueError(kind)
 
-def run_training(name, train_pattern, kind):
+def run_training(name, train_pattern, kind, loss_name="l1"):
+    loss_fn = LOSSES[loss_name]
     torch.manual_seed(0); rng = np.random.default_rng(0)
     model = build(kind).to(dev)
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
@@ -65,7 +106,7 @@ def run_training(name, train_pattern, kind):
     curve, t0 = [], time.time()
     for it in range(1, ITERS + 1):
         y, m, x = (t.to(dev) for t in make_batch(train_cubes, rng, train_pattern, 32))
-        loss = F.l1_loss(model(y, m if model.use_mask else None), x)
+        loss = loss_fn(model(y, m if model.use_mask else None), x)
         opt.zero_grad(set_to_none=True); loss.backward(); opt.step(); sched.step()
         if it % 500 == 0:
             v = _validate(model, val_set, dev); curve.append((it, round(v, 2)))
@@ -103,6 +144,18 @@ SPECS = {
     "E_agnostic_sparse_res": ("random", "sparse_res"),
     "F_fixed_imec_sparse_res": ("imec", "sparse_res"),
     "G_fixed_imec_mask": ("imec", "mask"),
+    "H_agnostic_sparse": ("random", "sparse"),
+    "I_agnostic_sparse_res0": ("random", "sparse_res0"),
+    "J_fixed_imec_sparse": ("imec", "sparse"),
+    "K_fixed_imec_sparse_res0": ("imec", "sparse_res0"),
+    "L_fixed_osp_sparse": ("osp", "sparse"),
+    "M_fixed_osp_sparse_res0": ("osp", "sparse_res0"),
+    "N_agnostic_wbin": ("random", "wbin"),
+    "O_agnostic_res0_huber": ("random", "sparse_res0", "huber"),
+    "P_fixed_imec_wbin": ("imec", "wbin"),
+    "Q_fixed_osp_wbin": ("osp", "wbin"),
+    "R_fixed_imec_res0_huber": ("imec", "sparse_res0", "huber"),
+    "S_fixed_osp_res0_huber": ("osp", "sparse_res0", "huber"),
 }
 results = {}
 res_path = OUT / "results.json"
@@ -112,9 +165,10 @@ if "wb" not in results:
     results["wb"] = {"scores": score(lambda y, m: np.clip(wb(y, m), 0, 1), PATS)}
     print("WB (val scenes) full/interior:", results["wb"]["scores"], flush=True)
 for name in RUNS:
-    tp, kind = SPECS[name]
-    print(f"== {name}: train_pattern={tp} input={kind} iters={ITERS}", flush=True)
-    model, curve = run_training(name, tp, kind)
+    tp, kind, *rest = SPECS[name]
+    loss_name = rest[0] if rest else "l1"
+    print(f"== {name}: train_pattern={tp} input={kind} loss={loss_name} iters={ITERS}", flush=True)
+    model, curve = run_training(name, tp, kind, loss_name)
     sc = score(lambda y, m: recon(model, y, m), PATS)
     results[name] = {"curve": curve, "scores": sc, "iters": ITERS}
     print(f"   {name} full/interior PSNR on val scenes: {sc}", flush=True)

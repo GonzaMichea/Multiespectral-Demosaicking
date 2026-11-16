@@ -25,13 +25,14 @@ def test_make_batch_random_changes_between_batches():
     assert (m1[0] == m1[1]).all() and not (m1[0] == m2[0]).all()
 
 
-@pytest.mark.parametrize("pattern,use_mask", [("imec", False), ("random", True)])
-def test_train_smoke(tmp_path, pattern, use_mask):
+@pytest.mark.parametrize("pattern,input_mode", [("imec", "wb"), ("random", "wb"), ("imec", "mosaic"), ("random", "mosaic_mask")])
+def test_train_smoke(tmp_path, pattern, input_mode):
     cubes = _smooth_cubes()
     out = tmp_path / "m.pt"
-    best = train(cubes[:3], cubes[3:], train_pattern=pattern, iters=150, out=out, batch=8, val_every=50, device=torch.device("cpu"))
+    best = train(cubes[:3], cubes[3:], train_pattern=pattern, input_mode=input_mode, iters=150, out=out, batch=8,
+                 val_every=50, device=torch.device("cpu"))
     ck = torch.load(out, map_location="cpu")
-    assert ck["use_mask"] is use_mask and ck["train_pattern"] == pattern
+    assert ck["input_mode"] == input_mode and ck["train_pattern"] == pattern
     assert np.isfinite(best) and ck["val_psnr"] == pytest.approx(best)
     log = np.genfromtxt(out.with_suffix(".log.csv"), delimiter=",", names=True)
     assert log["train_l1"][-1] < log["train_l1"][0]
@@ -70,3 +71,27 @@ def test_resume_rejects_state_from_different_run(tmp_path):
     with pytest.raises(ValueError):
         train(cubes[:3], cubes[3:], train_pattern="imec", iters=80, out=out, batch=4, val_every=20,
               device=torch.device("cpu"))
+
+
+def test_fixed_networks_get_the_same_input_as_the_agnostic_one(tmp_path):
+    cubes = _smooth_cubes()
+    for pattern in ("imec", "random"):
+        out = tmp_path / f"{pattern}.pt"
+        train(cubes[:3], cubes[3:], train_pattern=pattern, iters=10, out=out, batch=4, val_every=10, device=torch.device("cpu"))
+        assert torch.load(out, map_location="cpu")["input_mode"] == "wb"
+
+
+def test_maskless_network_cannot_train_on_random_patterns(tmp_path):
+    cubes = _smooth_cubes()
+    with pytest.raises(ValueError):
+        train(cubes[:3], cubes[3:], train_pattern="random", input_mode="mosaic", iters=10, out=tmp_path / "m.pt",
+              batch=4, val_every=10, device=torch.device("cpu"))
+
+
+def test_resume_rejects_state_with_different_input_mode(tmp_path):
+    cubes = _smooth_cubes()
+    kw = dict(train_pattern="imec", iters=40, out=tmp_path / "m.pt", batch=4, val_every=20, device=torch.device("cpu"))
+    with pytest.raises(TrainingPaused):
+        train(cubes[:3], cubes[3:], input_mode="wb", max_iters_this_run=20, **kw)
+    with pytest.raises(ValueError):
+        train(cubes[:3], cubes[3:], input_mode="mosaic_mask", **kw)

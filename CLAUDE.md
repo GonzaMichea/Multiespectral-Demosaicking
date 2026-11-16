@@ -4,7 +4,7 @@ Curso: Fotografía Computacional 2026-2, Universidad Técnica Federico Santa Mar
 Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
 (los documentos tipo paper van en inglés porque el template ICIP lo exige).
 
-## Estado actual (actualizado el lun 16 nov 2026, 15:45)
+## Estado actual (actualizado el lun 16 nov 2026, 16:25)
 
 **Fechas vigentes (hubo prórroga; el 11 nov ya no aplica):**
 - **Mié 18 nov, 14:40**: presentación de avance con **póster**. Benjamín necesita
@@ -12,7 +12,7 @@ Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
 - **Mié 25 nov**: entrega final (informe ICIP + repositorio).
 
 **Hecho:**
-- Código completo en `msdemosaic/`; 44 tests pasan (`.venv/bin/pytest`, ~40 s).
+- Código completo en `msdemosaic/`; 66 tests pasan (`.venv/bin/pytest`, ~1,5 min).
 - CAVE descargado en `data/CAVE/` (32 escenas, todas cargan bien).
 - Fila WB medida en las 8 escenas de prueba: ~32,0 dB PSNR, SSIM ~0,927,
   SAM ~4,96°, casi igual en los 4 patrones (`results/table.md`).
@@ -20,16 +20,22 @@ Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
   con WB**; las filas de las redes dicen "en curso".
 - README, `scripts/run_all.sh` y notebook de Kaggle (este último sin probar).
 
-**Revisión del 16 nov (leer `docs/revision-2026-11-16.md` antes de entrenar):**
+**Revisión del 16 nov (detalle y números en `docs/revision-2026-11-16.md`):**
 - Patrones, bandas, WB, simulador y PSNR verificados contra el paper y su código
   (el WB reproduce la Tabla I con 0,13 dB de diferencia).
-- Pruebas cortas (2 000 iteraciones, escenas de validación): fija-IMEC 35,2 dB
-  vs WB 32,6 (bien); **agnóstica [Y, M] solo 28,3 dB** (riesgo alto para H2);
-  fija-OSP sin máscara pierde 1,45 dB frente a con máscara (OSP tiene período
-  16 en filas y la U-Net solo distingue posiciones módulo 4).
-- Decisiones pendientes del usuario: (1) cambiar la entrada de la agnóstica
-  (probar [Y⊙M, M]); (2) dar máscara también a las redes fijas; (3) probar
-  `run_all.sh` de punta a punta. `scripts/pilot.py` corre las pruebas cortas.
+- Pruebas cortas (2 000 iteraciones, escenas de validación) mostraron que el
+  diseño original no alcanzaba: la agnóstica con entrada [Y, M] quedaba en
+  28,3 dB, bajo WB (32,6) y 7 dB bajo la fija-IMEC.
+- **Cambio de diseño (implementado, 66 tests pasan):** todas las redes reciben
+  la entrada [WB(Y, M), Y⊙M, M] (`input_mode="wb"`, 48 canales, 1 068 640
+  parámetros). Con eso la agnóstica llega a 34,6–35,1 dB y la fija-IMEC a
+  36,1 dB en IMEC (y 32,5–33,7 en patrones no vistos).
+- **Las redes fijas ahora reciben la máscara**: fija y agnóstica difieren solo
+  en los patrones de entrenamiento. Esto cambia la línea base de la presentación
+  ("U-Net sin máscara"); esa red queda como ablación (`--input mosaic`).
+- Vista previa: H1 −3,2 dB, H2 1,5 dB de brecha en IMEC (aún no < 1 dB),
+  H3 +1,4 a +2,5 dB. El residuo sobre WB no funciona (las ReLU mueren).
+- `scripts/pilot.py` corre las pruebas cortas.
 
 **NO hecho — ninguna red está entrenada:**
 - `checkpoints/` está vacío. Hubo dos intentos, ambos detenidos por el usuario
@@ -39,20 +45,26 @@ Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
   última instrucción fue: "Deja de correr, no corras aún".
 
 **Falta, en orden:**
-1. Entrenar las 3 redes (ver "Entrenamiento").
-2. `evaluate_all` + `figures` → tabla H1–H3 y figuras finales. Revisar las
+1. Probar `scripts/run_all.sh` de punta a punta con pocas iteraciones (nunca
+   corrió completo en su versión con pausa).
+2. Actualizar `Poster/poster.typ`: entrada de la red, línea base (ya no "sin
+   máscara"), parámetros (1,07 M) e iteraciones reales.
+3. Opcional: red convencional sin máscara como cuarta fila (`--pattern imec
+   --input mosaic --out checkpoints/conventional_imec.pt`); requiere agregarla
+   a `METHOD_ORDER`, figuras y póster.
+4. Entrenar las 3 redes (ver "Entrenamiento").
+5. `evaluate_all` + `figures` → tabla H1–H3 y figuras finales. Revisar las
    figuras a ojo.
-3. Punto de decisión: ¿fija-IMEC supera a WB (~32,0 dB) en IMEC? Si no,
-   depurar (sobreajustar 1 escena debe dar > 40 dB; revisar fase del patrón).
-4. Recompilar el póster y revisarlo; confirmar formato (asumido A1 vertical).
-5. `LaTeX_template/report.tex` (informe ICIP en inglés, a partir de
+6. Recompilar el póster y revisarlo; confirmar formato (asumido A1 vertical).
+7. `LaTeX_template/report.tex` (informe ICIP en inglés, a partir de
    `proposal.tex`; toda cifra debe salir de `results/`).
-6. Revisión final del código (nadie más lo ha revisado).
-7. Nivel C (ruido) no se ha tocado; solo si sobra tiempo.
+8. Revisión final del código (nadie más lo ha revisado).
+9. Nivel C (ruido) no se ha tocado; solo si sobra tiempo.
 
 ## Entrenamiento
 
-- Velocidad medida en el Mac M5 con MPS, lote 32: 6–8 it/s.
+- Velocidad medida en el Mac M5 con MPS, lote 32: ~6,8 it/s con la entrada nueva
+  (20 000 iteraciones ≈ 50 min por red; 40 000 ≈ 100 min).
   40 000 iteraciones ≈ 2 h por red (~6 h las tres); 20 000 ≈ 1 h por red (~3 h).
 - Curva conocida de fija-IMEC (validación): 32,2–32,6 dB a 1 000 iteraciones,
   34,8 dB a 6 000, aún subiendo. No se sabe cuánto se pierde con 20 000.
@@ -126,10 +138,13 @@ Entorno: `.venv` creado con `uv venv --python 3.12` (el Python del sistema es
   lote.
 - WB: convolución normalizada con kernel triangular 7×7 (sirve para cualquier
   patrón); los píxeles medidos conservan su valor.
-- U-Net: base 48, 2 submuestreos, sin normalización, 1 055 248 parámetros
-  (agnóstica, entrada [Y, M] de 17 canales) y 1 048 336 (fija, solo Y).
-  Pérdida L1, Adam 1e-3 con coseno, parches 64×64, lote 32.
-- Las redes fijas no reciben máscara; la agnóstica sí.
+- U-Net: base 48, 2 submuestreos, sin normalización, salida directa (sin
+  residuo). Entrada por defecto `wb` = [WB(Y, M), Y⊙M, M], 48 canales,
+  1 068 640 parámetros. Ablaciones: `mosaic_mask` = [Y, M] (1 055 248) y
+  `mosaic` = solo Y (1 048 336). Pérdida L1, Adam 1e-3 con coseno, parches
+  64×64, lote 32.
+- Todas las redes reciben la misma entrada (con máscara); cambia solo el
+  patrón de entrenamiento (decisión del 16 nov, ver revisión).
 - El test de humo del entrenamiento no exige un PSNR mínimo: la red tarda
   200–500 iteraciones en salir de la solución constante.
 - Git: repo creado el 12 nov, todo en `main`, sin remoto. Fuera de git: `data/`,

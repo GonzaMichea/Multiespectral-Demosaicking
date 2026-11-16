@@ -10,7 +10,60 @@
 
 **Spec:** `CLAUDE.md` (decisión, hipótesis, método, alcance) y `Presentacion_Plan/plan_proyecto.typ` (cronograma, hitos, riesgos, kernels de los patrones en líneas 51–55). El ejecutor lee ambos.
 
-## Calendario (reemplaza al de la ppt: mismas fases, 13 días en vez de 6 semanas)
+## Actualización del 16 nov 2026 (manda sobre el resto del documento)
+
+Tras la revisión (`docs/revision-2026-11-16.md`) cambió el diseño de las redes.
+Donde este plan diga otra cosa, vale lo siguiente:
+
+- **Entrada de todas las redes:** `[WB(Y, M), Y⊙M, M]` (48 canales), salida
+  directa, pérdida L1. Reemplaza a `[Y, M]` (agnóstica) y a "solo Y" (fijas).
+  Motivo: con `[Y, M]` la agnóstica quedaba 4 dB bajo WB a las 2 000 iteraciones;
+  con WB como entrada queda 2 dB sobre WB.
+- **Redes fijas con la misma entrada que la agnóstica** (incluida la máscara):
+  la única diferencia es el patrón de entrenamiento. La red sin máscara de la
+  ppt pasa a ser una ablación opcional (`--input mosaic`). Motivo: la fija-OSP
+  sin máscara perdía 1,45 dB porque OSP tiene período 16 en filas y la U-Net
+  solo distingue posiciones módulo 4.
+- **Interfaz:** `UNet(input_mode="wb" | "mosaic_mask" | "mosaic", base=48)`;
+  `train(..., input_mode="wb")`; CLI `--input`; el checkpoint guarda
+  `"input_mode"` (ya no `"use_mask"`). `weighted_bilinear(sparse, mask)` en
+  `model.py` es la versión torch de `wb`.
+- **Parámetros:** 1 068 640 (sigue bajo 2 M).
+- **Evaluación:** desviación estándar muestral; `paired_differences(rows)`
+  entrega las diferencias por escena de H2 y H3 en `hypotheses.json["paired"]`.
+- **No usar residuo sobre WB**: con L1 o L1 suavizada las ReLU mueren.
+- **Expectativa realista:** H1 será una caída moderada (~3 dB, la fija vuelve
+  al nivel de WB), no un colapso; H2 está en 1,5 dB de brecha a las 2 000
+  iteraciones y puede no bajar de 1 dB; H3 se cumple con +1,4 a +2,5 dB.
+
+### Tareas nuevas
+
+- [x] **T15: entrada `wb` y modos de entrada** en `model.py`/`train.py` (hecho, 66 tests).
+- [x] **T16: desviación muestral y diferencias pareadas** en `evaluate_all.py` (hecho).
+- [ ] **T17: probar `scripts/run_all.sh` de punta a punta** con pocas iteraciones
+  (p. ej. `scripts/run_all.sh 30 cave-split`), revisar que genera los 3
+  checkpoints, `results/` y el póster; después borrar `checkpoints/` y
+  restaurar `results/` y `Poster/poster.pdf` con `git checkout`.
+- [ ] **T18: póster** — describir la entrada nueva, cambiar la línea base (ya no
+  "sin máscara"), parámetros 1,07 M, iteraciones reales.
+- [ ] **T19 (opcional): red convencional sin máscara** como cuarta fila
+  (`conventional_imec`): agregar a `METHOD_ORDER`, `hypotheses`
+  (`h1_drop_db_conventional`), figuras y póster; entrenar al final.
+- [ ] **T12 (entrenamiento real):** `caffeinate -i scripts/run_all.sh 20000 cave-split`
+  (~2,5 h) o 40 000 (~5 h, de noche). Orden: fija-IMEC → agnóstica → fija-OSP.
+
+### Calendario vigente
+
+| Cuándo | Qué |
+|---|---|
+| Lun 16 nov (noche) o mar 17 (mañana) | T17, T18 y lanzar T12 |
+| Mar 17 nov | Evaluación, figuras, póster final; práctica de la presentación |
+| **Mié 18 nov, 14:40** | **Póster** |
+| Jue 19 – dom 22 nov | Reentrenar a 40 000 si hace falta, T19, nivel C si sobra tiempo; experimentos cerrados el dom 22 |
+| Lun 23 – mar 24 nov | Informe ICIP y README |
+| **Mié 25 nov** | **Entrega final** |
+
+## Calendario original (reemplazado por el de arriba)
 
 | Fecha | Fase ppt | Tareas | Hito |
 |---|---|---|---|
