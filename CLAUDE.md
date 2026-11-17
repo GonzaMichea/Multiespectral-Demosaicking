@@ -52,8 +52,11 @@ es `results/`, no esta tabla):**
   9,94 dB y la red sin máscara 15,45 dB; las tres quedan bajo WB.
 - **H2 no se cumple:** la agnóstica queda a 1,21 dB (IMEC) y 1,40 dB (OSP) de la
   red fija de ese patrón (umbral: 1 dB). Por escena queda bajo 1 dB en 2 de 8
-  (IMEC) y 3 de 8 (OSP). Frente a la red sin máscara, la diferencia en IMEC es
-  0,27 dB.
+  (IMEC) y 3 de 8 (OSP). Con 8 escenas el IC 95 % de la brecha incluye 1 dB
+  (IMEC 0,66–1,75; OSP 0,88–1,93): no alcanza para afirmar que la supere ni que
+  quede bajo ella. Frente a la red sin máscara, la diferencia en IMEC es 0,27 dB
+  en promedio, pero varía mucho por escena (−2,85 a +1,53 dB). El póster dice
+  "no se cumple por poco" (pedido del usuario el 17 nov: mostrar que estuvo cerca).
 - **H3 se cumple:** en patrones no vistos la agnóstica supera a las fijas por
   6,33 a 9,89 dB, en las 8 escenas de los 6 casos.
 - La agnóstica supera a WB por 3,4 a 4,2 dB en promedio, pero no en todas las

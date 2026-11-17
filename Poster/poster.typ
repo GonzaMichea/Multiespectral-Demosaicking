@@ -40,6 +40,7 @@
   }
   s.replace(".", ",").replace("-", "−")
 }
+#let psnr(m, p) = float(rows.find(r => r.method == m and r.pattern == p).psnr_mean)
 #let cell(m, p, metric: "psnr", digits: 2) = {
   let r = rows.find(r => r.method == m and r.pattern == p)
   if r == none { text(fill: luma(120), style: "italic")[en curso] } else {
@@ -183,7 +184,7 @@
         )
       }
       #v(-0.3em)
-      #text(size: 0.75em)[Celda azul: patrón con que se entrenó esa red (visto). El resto son patrones no vistos por la red.]
+      #text(size: 0.75em)[Celda azul: patrón con que se entrenó esa red (visto); los demás son patrones no vistos.]
 
       #v(0.3em)
       #text(weight: "bold")[SAM (grados, menor es mejor)]
@@ -209,7 +210,12 @@
         *Estado de las hipótesis*
         - *H1*: #if hyp.h1_drop_db == none [en curso.] else [la red fija-IMEC pierde #hl[#fmt(hyp.h1_drop_db) dB] en promedio al pasar a patrones no vistos#if hyp.h1_drop_db_osp != none [ (fija-OSP: #fmt(hyp.h1_drop_db_osp) dB)]#if hyp.at("h1_drop_db_conventional", default: none) != none [; la red sin máscara pierde #hl[#fmt(hyp.h1_drop_db_conventional) dB]].]
         - *H2*: #if hyp.h2_gap_db == none [en curso.] else [
-            diferencia fija − agnóstica: #hyp.h2_gap_db.pairs().map(((k, v)) => [#upper(k) #fmt(v) dB]).join[, ] → #if hyp.h2_holds [#hl[se cumple] (< 1 dB).] else [#hl[no se cumple] con el umbral de 1 dB.]
+            // "por poco": la brecha mayor queda a menos de 0,5 dB del umbral.
+            diferencia fija − agnóstica: #hyp.h2_gap_db.pairs().map(((k, v)) => [#upper(k) #fmt(v) dB]).join[, ] → #if hyp.h2_holds [#hl[se cumple] (< 1 dB).] else if calc.max(..hyp.h2_gap_db.values()) < 1.5 [#hl[no se cumple por poco] (umbral: 1 dB).] else [#hl[no se cumple] con el umbral de 1 dB.]
+            #if has("conventional_imec") and has("agnostic") {
+              let d = psnr("conventional_imec", "imec") - psnr("agnostic", "imec")
+              if d > 0 [Aun así, en IMEC la agnóstica queda en promedio a solo #fmt(d) dB de la U-Net convencional sin máscara.] else [En IMEC la agnóstica supera en promedio a la U-Net convencional sin máscara.]
+            }
           ]
         - *H3*: #if hyp.h3_margin_db == none [en curso.] else {
             let vals = hyp.h3_margin_db.values()
@@ -225,7 +231,7 @@
 
     #seccion[8 · Próximos pasos (entrega final: 25 nov)][
       - #if not (has("agnostic") and has("fixed_osp")) [Terminar el entrenamiento de las redes pendientes y cerrar la tabla H1–H3] else if hyp.h2_holds == false [Reducir la brecha de H2: probar la red agnóstica con más capacidad y más iteraciones] else [Confirmar H1–H3 con más semillas de entrenamiento].
-      - PSNR por banda, firmas espectrales y artefactos (zipper, falso color).
+      - Analizar errores por banda, zipper y falso color.
       - Informe en formato ICIP y repositorio con README.
       - Si hay tiempo: robustez al ruido.
     ]
