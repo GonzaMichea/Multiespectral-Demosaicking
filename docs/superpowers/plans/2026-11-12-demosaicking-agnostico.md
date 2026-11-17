@@ -48,21 +48,51 @@ Donde este plan diga otra cosa, vale lo siguiente:
 - [x] **T19: red convencional sin máscara** (`conventional_imec`, `--input
   mosaic`): fila opcional en `METHOD_ORDER`, `h1_drop_db_conventional`, figuras
   y póster. Se entrena al final de `run_all.sh`.
-- [ ] **T12 (entrenamiento real): EN CURSO.** Lanzado el lun 16 nov a las 19:50
-  con `caffeinate -i scripts/run_all.sh 20000 cave-split`. Orden: fija-IMEC →
-  agnóstica → fija-OSP → convencional sin máscara. ~43 min por red a 8 it/s;
-  término estimado ~22:45. Si se interrumpe, el mismo comando continúa.
-- [ ] **T20: revisar resultados** cuando exista `checkpoints/ALL_DONE`: tabla,
-  `hypotheses.json` (incluye `paired` y `training`), figuras a ojo y póster.
+- [x] **T12 (entrenamiento real): hecho** el lun 16 nov, de 19:50 a 23:00, con
+  `caffeinate -i scripts/run_all.sh 20000 cave-split`. Orden: fija-IMEC →
+  agnóstica → fija-OSP → convencional sin máscara, ~45 min por red.
+- [x] **T20: resultados revisados** (16 nov, 23:15): tabla, `hypotheses.json`,
+  figuras y póster (una página). Resultados abajo.
+
+### Resultados finales (20 000 iteraciones, 8 escenas de prueba)
+
+PSNR medio en dB; la fuente es `results/table.md`.
+
+| Método | IMEC | OSP | BTES | Aleatorio |
+|---|---|---|---|---|
+| WB | 31,99 | 32,13 | 31,98 | 31,99 |
+| U-Net sin máscara (IMEC) | 35,70 | 20,75 | 19,76 | 20,24 |
+| U-Net fija-IMEC | 36,64 | 29,25 | 28,77 | 29,74 |
+| U-Net fija-OSP | 25,55 | 37,73 | 28,90 | 28,95 |
+| U-Net agnóstica | 35,43 | 36,33 | 36,14 | 36,07 |
+
+- **H1 se cumple**, y con más fuerza que en la vista previa: la fija-IMEC pierde
+  7,38 dB fuera de su patrón, la fija-OSP 9,94 dB y la red sin máscara 15,45 dB;
+  las tres quedan bajo WB.
+- **H2 no se cumple:** brecha de 1,21 dB (IMEC) y 1,40 dB (OSP) con el umbral de
+  1 dB. Frente a la red sin máscara la diferencia en IMEC es 0,27 dB.
+- **H3 se cumple:** +6,33 a +9,89 dB sobre las fijas en patrones no vistos, en
+  las 8 escenas de los 6 casos.
+- Las curvas de validación se aplanan antes de las 20 000 iteraciones mientras
+  el L1 de entrenamiento sigue bajando.
+
+### Tareas que quedan
+
+- [ ] **T21: decidir qué hacer con H2** para el informe: reportarla como no
+  cumplida, o probar más capacidad (`base` 64) y 40 000 iteraciones. Preguntar al
+  usuario antes de lanzar entrenamientos.
+- [ ] **T13: informe ICIP** (`LaTeX_template/report.tex`) y revisión final del
+  código.
+- [ ] **T14: nivel C (ruido)**, solo si sobra tiempo.
 
 ### Calendario vigente
 
 | Cuándo | Qué |
 |---|---|
-| Lun 16 nov (noche) o mar 17 (mañana) | T17, T18 y lanzar T12 |
-| Mar 17 nov | Evaluación, figuras, póster final; práctica de la presentación |
+| Lun 16 nov (noche) | T17, T18, T12 y T20: hechos |
+| Mar 17 nov | Práctica de la presentación; confirmar formato del póster e imprimir |
 | **Mié 18 nov, 14:40** | **Póster** |
-| Jue 19 – dom 22 nov | Reentrenar a 40 000 si hace falta, T19, nivel C si sobra tiempo; experimentos cerrados el dom 22 |
+| Jue 19 – dom 22 nov | T21 (H2), nivel C si sobra tiempo; experimentos cerrados el dom 22 |
 | Lun 23 – mar 24 nov | Informe ICIP y README |
 | **Mié 25 nov** | **Entrega final** |
 

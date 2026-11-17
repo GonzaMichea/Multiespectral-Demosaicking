@@ -4,7 +4,7 @@ Curso: Fotografía Computacional 2026-2, Universidad Técnica Federico Santa Mar
 Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
 (los documentos tipo paper van en inglés porque el template ICIP lo exige).
 
-## Estado actual (actualizado el lun 16 nov 2026, 20:00)
+## Estado actual (actualizado el lun 16 nov 2026, 23:15)
 
 **Fechas vigentes (hubo prórroga; el 11 nov ya no aplica):**
 - **Mié 18 nov, 14:40**: presentación de avance con **póster**. Benjamín necesita
@@ -14,11 +14,11 @@ Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
 **Hecho:**
 - Código completo en `msdemosaic/`; 69 tests pasan (`.venv/bin/pytest`, ~1,8 min).
 - CAVE descargado en `data/CAVE/` (32 escenas, todas cargan bien).
-- Fila WB medida en las 8 escenas de prueba: ~32,0 dB PSNR, SSIM ~0,927,
-  SAM ~4,96°, casi igual en los 4 patrones (`results/table.md`).
-- `results/`, `results/figs/` y `Poster/poster.pdf` regenerados el 16 nov **solo
-  con WB**; las filas de las redes dicen "en curso".
-- README, `scripts/run_all.sh` y notebook de Kaggle (este último sin probar).
+- **Las 4 redes entrenadas (20 000 iteraciones) y evaluadas el 16 nov.**
+  `results/`, `results/figs/` y `Poster/poster.pdf` tienen los resultados reales
+  (commit local; revisados a ojo, póster en una página).
+- README, `scripts/run_all.sh` y notebook de Kaggle (este último sin probar y
+  anterior al cambio de entrada).
 
 **Revisión del 16 nov (detalle y números en `docs/revision-2026-11-16.md`):**
 - Patrones, bandas, WB, simulador y PSNR verificados contra el paper y su código
@@ -37,39 +37,53 @@ Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
   H3 +1,4 a +2,5 dB. El residuo sobre WB no funciona (las ReLU mueren).
 - `scripts/pilot.py` corre las pruebas cortas.
 
-**Entrenamiento real EN CURSO (lanzado el lun 16 nov 2026 a las 19:50):**
-- El usuario lo autorizó el 16 nov ("Ya puedes dejar corriendo lo que haya que
-  hacer"). Comando: `caffeinate -i scripts/run_all.sh 20000 cave-split`.
-- 4 redes de 20 000 iteraciones, en este orden: `fixed_imec` → `agnostic` →
-  `fixed_osp` → `conventional_imec` (sin máscara, opcional). ~43 min por red a
-  8 it/s; término estimado ~22:45. Al terminar cada red se regeneran solos
-  `results/`, `results/figs/` y `Poster/poster.pdf`.
-- Progreso: `tail -f checkpoints/<red>.out` y `cat checkpoints/run_all.out`.
-  Terminó todo cuando existe `checkpoints/ALL_DONE`.
-- Si se interrumpe (apagado, tapa cerrada mucho rato, proceso muerto): el mismo
-  comando continúa donde quedó (probado: reanudó desde la iteración 1 000).
-- Primer dato: fija-IMEC 34,05 dB en validación a las 2 000 iteraciones.
+**Resultados finales (16 nov; 8 escenas de prueba, PSNR medio en dB; la fuente
+es `results/`, no esta tabla):**
+
+| Método | IMEC | OSP | BTES | Aleatorio |
+|---|---|---|---|---|
+| WB | 31,99 | 32,13 | 31,98 | 31,99 |
+| U-Net sin máscara (IMEC) | 35,70 | 20,75 | 19,76 | 20,24 |
+| U-Net fija-IMEC | 36,64 | 29,25 | 28,77 | 29,74 |
+| U-Net fija-OSP | 25,55 | 37,73 | 28,90 | 28,95 |
+| U-Net agnóstica | 35,43 | 36,33 | 36,14 | 36,07 |
+
+- **H1 se cumple:** fuera de su patrón la fija-IMEC pierde 7,38 dB, la fija-OSP
+  9,94 dB y la red sin máscara 15,45 dB; las tres quedan bajo WB.
+- **H2 no se cumple:** la agnóstica queda a 1,21 dB (IMEC) y 1,40 dB (OSP) de la
+  red fija de ese patrón (umbral: 1 dB). Por escena queda bajo 1 dB en 2 de 8
+  (IMEC) y 3 de 8 (OSP). Frente a la red sin máscara, la diferencia en IMEC es
+  0,27 dB.
+- **H3 se cumple:** en patrones no vistos la agnóstica supera a las fijas por
+  6,33 a 9,89 dB, en las 8 escenas de los 6 casos.
+- La agnóstica supera a WB por 3,4 a 4,2 dB en promedio, pero no en todas las
+  escenas (stuffed_toys en IMEC: 35,22 contra 35,37 de WB).
+- Entrenamiento: `caffeinate -i scripts/run_all.sh 20000 cave-split`, de 19:50 a
+  23:00 (~45 min por red). Existe `checkpoints/ALL_DONE`; no hay nada corriendo.
 - **Antes de lanzar otro entrenamiento, preguntar al usuario** (ha detenido
   entrenamientos dos veces por batería o por tener que cerrar el Mac).
 
 **Falta, en orden:**
-1. Cuando exista `checkpoints/ALL_DONE`: revisar `results/table.md`,
-   `results/hypotheses.json` (claves `paired` y `training`), las figuras a ojo y
-   el póster recompilado; hacer commit de `results/` y del póster.
-2. Confirmar formato del póster con el profesor (asumido A1 vertical).
-3. Si las curvas de validación siguen subiendo a las 20 000 iteraciones,
-   reentrenar a 40 000 para el informe (jue 19 – dom 22 nov).
-4. `LaTeX_template/report.tex` (informe ICIP en inglés, a partir de
+1. Benjamín: practicar el póster (mar 17) y confirmar el formato con el profesor
+   (asumido A1 vertical; se cambia en `PAPER` de `Poster/poster.typ`).
+2. Decidir qué hacer con H2 para el informe: reportarla como no cumplida (es un
+   resultado válido) o probar más capacidad (`base` 64) y 40 000 iteraciones
+   (más de 1 h por red; preguntar antes de lanzar).
+3. `LaTeX_template/report.tex` (informe ICIP en inglés, a partir de
    `proposal.tex`; toda cifra debe salir de `results/`).
-5. Revisión final del código (nadie más lo ha revisado).
-6. Nivel C (ruido) no se ha tocado; solo si sobra tiempo.
+4. Revisión final del código (nadie más lo ha revisado).
+5. Nivel C (ruido) no se ha tocado; solo si sobra tiempo.
+6. Hay commits locales sin subir a GitHub: push solo si el usuario lo pide.
 
 ## Entrenamiento
 
 - Velocidad medida en el Mac M5 con MPS, lote 32: ~8 it/s con la entrada nueva
   (20 000 iteraciones ≈ 43 min por red; 40 000 ≈ 85 min).
-- Curva conocida de fija-IMEC (validación): 32,2–32,6 dB a 1 000 iteraciones,
-  34,8 dB a 6 000, aún subiendo. No se sabe cuánto se pierde con 20 000.
+- Curvas de validación del entrenamiento real (`checkpoints/<red>.log.csv`,
+  `results/figs/training_curves.png`): fija-IMEC 35,5 dB desde ~8 000
+  iteraciones, agnóstica 34,8 desde ~13 000, fija-OSP 37,3 desde ~15 000. El L1
+  de entrenamiento sigue bajando mientras la validación no sube, así que más
+  iteraciones solas probablemente no cierran la brecha de H2 (no se probó).
 - **Hay pausa y reanudación** (desde el 16 nov): el estado completo se guarda en
   `checkpoints/_running_<nombre>.state.pt` en cada validación (cada 1 000
   iteraciones). Repetir el mismo comando continúa donde quedó; las redes ya

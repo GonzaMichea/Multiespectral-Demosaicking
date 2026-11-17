@@ -224,7 +224,7 @@
     ]
 
     #seccion[8 · Próximos pasos (entrega final: 25 nov)][
-      - #if not (has("agnostic") and has("fixed_osp")) [Terminar el entrenamiento de las redes pendientes y cerrar la tabla H1–H3] else if hyp.h2_holds == false [Reducir la brecha de H2: entrenar la red agnóstica por más iteraciones o con más capacidad] else [Confirmar H1–H3 con más semillas de entrenamiento].
+      - #if not (has("agnostic") and has("fixed_osp")) [Terminar el entrenamiento de las redes pendientes y cerrar la tabla H1–H3] else if hyp.h2_holds == false [Reducir la brecha de H2: probar la red agnóstica con más capacidad y más iteraciones] else [Confirmar H1–H3 con más semillas de entrenamiento].
       - PSNR por banda, firmas espectrales y artefactos (zipper, falso color).
       - Informe en formato ICIP y repositorio con README.
       - Si hay tiempo: robustez al ruido.
