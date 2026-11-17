@@ -114,23 +114,29 @@ def plot_visual(cube: np.ndarray, recons: dict[str, np.ndarray], pattern: str, o
     ref = cube[CROP]
     scale = max(ref[..., list(RGB_BANDS)].max(), 1e-6)
     n = len(recons) + 1
-    fig, axes = plt.subplots(2, n, figsize=(2.1 * n, 4.4))
+    # Narrow panels and two-line titles keep the text readable when the figure is
+    # scaled down to a poster or paper column (six panels side by side).
+    fig, axes = plt.subplots(2, n, figsize=(1.8 * n, 4.2), gridspec_kw={"wspace": 0.08, "hspace": 0.3})
     axes[0, 0].imshow(_rgb(ref))
-    axes[0, 0].set_title("Reference", fontsize=9)
+    axes[0, 0].set_title("Reference", fontsize=12)
     axes[1, 0].axis("off")
     for col, (m, recon) in enumerate(recons.items(), start=1):
         crop = np.clip(recon[CROP], 0, 1)
         rgb = np.clip(crop[..., list(RGB_BANDS)] / scale, 0, 1) ** (1 / 2.2)
         axes[0, col].imshow(rgb)
-        axes[0, col].set_title(LABELS[m], fontsize=9)
+        axes[0, col].set_title(LABELS[m].replace("U-Net ", "U-Net\n"), fontsize=12)
         err = np.abs(crop - ref).mean(-1)
         im = axes[1, col].imshow(err, cmap="magma", vmin=0, vmax=0.15)
-        axes[1, col].set_title(f"MAE {err.mean():.4f}", fontsize=8)
+        axes[1, col].set_title(f"MAE {err.mean():.4f}", fontsize=11)
     for ax in axes.ravel():
         ax.set_xticks([])
         ax.set_yticks([])
-    fig.colorbar(im, ax=axes[1, :], fraction=0.02, pad=0.01, label="Mean abs. error")
-    fig.suptitle(f"Pattern: {PATTERN_LABELS[pattern]}", fontsize=10)
+    # The colour bar takes its room from both rows, so each error map stays under its
+    # reconstruction; shrink/anchor place it next to the bottom row only.
+    colorbar = fig.colorbar(im, ax=axes, fraction=0.02, pad=0.01, shrink=0.42, anchor=(0.0, 0.0))
+    colorbar.set_label("Mean abs. error", fontsize=11)
+    colorbar.ax.tick_params(labelsize=10)
+    fig.suptitle(f"Pattern: {PATTERN_LABELS[pattern]}", fontsize=12, y=1.04)
     _save(fig, out, f"visual_{pattern}")
 
 
@@ -159,6 +165,8 @@ def plot_training_curves(checkpoints: Path, out: Path) -> None:
     for m, path in logs.items():
         data = np.genfromtxt(path, delimiter=",", names=True)
         ax.plot(np.atleast_1d(data["iter"]), np.atleast_1d(data["val_psnr"]), color=COLORS[m], label=LABELS[m])
+    # Thousands on the x axis: the default five-digit tick labels overlap at this width.
+    ax.xaxis.set_major_formatter(lambda value, _pos: f"{value / 1000:g}k")
     ax.set_xlabel("Iteration")
     ax.set_ylabel("Validation PSNR (dB)")
     ax.grid(alpha=0.3)

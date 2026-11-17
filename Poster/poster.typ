@@ -32,6 +32,12 @@
 #let miles(n) = if n >= 1000 { str(calc.quo(n, 1000)) + " " + ("000" + str(calc.rem(n, 1000))).slice(-3) } else { str(n) }
 #let fmt(x, digits: 2) = {
   let s = str(calc.round(float(x), digits: digits))
+  if digits > 0 {
+    // str() quita los ceros finales (36.4 en vez de 36.40): se reponen.
+    let parts = s.split(".")
+    let frac = if parts.len() > 1 { parts.at(1) } else { "" }
+    s = parts.at(0) + "." + frac + "0" * (digits - frac.len())
+  }
   s.replace(".", ",").replace("-", "−")
 }
 #let cell(m, p, metric: "psnr", digits: 2) = {
@@ -218,7 +224,7 @@
     ]
 
     #seccion[8 · Próximos pasos (entrega final: 25 nov)][
-      - #if has("agnostic") and has("fixed_osp") [Cerrar la tabla y el análisis de H1–H3] else [Terminar el entrenamiento de las redes pendientes y cerrar la tabla H1–H3].
+      - #if not (has("agnostic") and has("fixed_osp")) [Terminar el entrenamiento de las redes pendientes y cerrar la tabla H1–H3] else if hyp.h2_holds == false [Reducir la brecha de H2: entrenar la red agnóstica por más iteraciones o con más capacidad] else [Confirmar H1–H3 con más semillas de entrenamiento].
       - PSNR por banda, firmas espectrales y artefactos (zipper, falso color).
       - Informe en formato ICIP y repositorio con README.
       - Si hay tiempo: robustez al ruido.
