@@ -38,8 +38,6 @@ uv pip install -p .venv/bin/python -r requirements.txt -e .
 # 3. Figuras → results/figs/
 .venv/bin/python -m msdemosaic.figures --data-mode cave-split
 
-# 4. Póster (lee results/)
-typst compile --root . Poster/poster.typ
 ```
 
 Todo en un comando, por sesiones (se puede pausar y continuar):

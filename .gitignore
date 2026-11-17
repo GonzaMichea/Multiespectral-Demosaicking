@@ -9,3 +9,8 @@ __pycache__/
 .superpowers/
 DemosaickingMultispectral3DSpherePacking/
 Multispectral_Filter_Array_Design_by_Optimal_Sphere_Packing.pdf
+
+# Pósteres, presentaciones y guion de la presentación: solo locales
+Poster/
+Presentacion_Plan/
+WACCI_2026/

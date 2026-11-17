@@ -15,8 +15,9 @@ Equipo: Benjamín Cisternas y Gonzalo Michea. Idioma de trabajo: español
 - Código completo en `msdemosaic/`; 69 tests pasan (`.venv/bin/pytest`, ~1,8 min).
 - CAVE descargado en `data/CAVE/` (32 escenas, todas cargan bien).
 - **Las 4 redes entrenadas (20 000 iteraciones) y evaluadas el 16 nov.**
-  `results/`, `results/figs/` y `Poster/poster.pdf` tienen los resultados reales
-  (commit local; revisados a ojo, póster en una página).
+  `results/` y `results/figs/` tienen los resultados reales (revisados a ojo).
+- **Póster en formato WACCI 2026** (17 nov): `WACCI_2026/poster_demosaicking.tex`
+  (+ PDF), una página. Guion de la presentación: `Poster/guion_presentacion.md`.
 - README, `scripts/run_all.sh` y notebook de Kaggle (este último sin probar y
   anterior al cambio de entrada).
 
@@ -67,8 +68,7 @@ es `results/`, no esta tabla):**
   entrenamientos dos veces por batería o por tener que cerrar el Mac).
 
 **Falta, en orden:**
-1. Benjamín: practicar el póster (mar 17) y confirmar el formato con el profesor
-   (asumido A1 vertical; se cambia en `PAPER` de `Poster/poster.typ`).
+1. Benjamín: practicar el póster (mar 17) con el guion e imprimir el póster WACCI.
 2. Decidir qué hacer con H2 para el informe: reportarla como no cumplida (es un
    resultado válido) o probar más capacidad (`base` 64) y 40 000 iteraciones
    (más de 1 h por red; preguntar antes de lanzar).
@@ -119,7 +119,8 @@ es `results/`, no esta tabla):**
 .venv/bin/python -m msdemosaic.train --pattern {imec,osp,random} --data-mode cave-split --iters N --out checkpoints/{fixed_imec,fixed_osp,agnostic}.pt
 .venv/bin/python -m msdemosaic.evaluate_all --data-mode cave-split   # → results/
 .venv/bin/python -m msdemosaic.figures --data-mode cave-split        # → results/figs/
-typst compile --root . Poster/poster.typ                             # lee results/
+(cd WACCI_2026 && tectonic -X compile poster_demosaicking.tex)       # póster WACCI
+typst compile --root . Poster/poster.typ                             # póster Typst anterior
 ```
 
 Entorno: `.venv` creado con `uv venv --python 3.12` (el Python del sistema es
@@ -166,8 +167,10 @@ Entorno: `.venv` creado con `uv venv --python 3.12` (el Python del sistema es
   patrón de entrenamiento (decisión del 16 nov, ver revisión).
 - El test de humo del entrenamiento no exige un PSNR mínimo: la red tarda
   200–500 iteraciones en salir de la solución constante.
-- Git: repo creado el 12 nov, todo en `main`, sin remoto. Fuera de git: `data/`,
-  `checkpoints/`, `.venv/`, el PDF del paper y el código MATLAB.
+- Git: todo en `main`; remoto `origin` en GitHub (público). Fuera de git: `data/`,
+  `checkpoints/`, `.venv/`, el PDF del paper, el código MATLAB y, desde el 17 nov
+  (pedido del usuario), `Poster/`, `Presentacion_Plan/` y `WACCI_2026/`
+  (pósteres, presentaciones y guion; versiones antiguas siguen en el historial).
 
 ## Alcance
 - Nivel A (mínimo): simulador con 4 patrones, WB, U-Net fija-IMEC, H1.
@@ -193,8 +196,16 @@ Entorno: `.venv` creado con `uv venv --python 3.12` (el Python del sistema es
 - `scripts/download_cave.py`, `scripts/run_all.sh`, `notebooks/kaggle_train.ipynb`.
 - `results/`: `per_scene.csv`, `per_band.csv`, `summary.csv`, `table.md`,
   `table.tex`, `hypotheses.json`, `figs/` (sí van a git).
-- `Poster/poster.typ` (+ PDF): póster A1 en español; lee `results/summary.csv`,
-  `results/hypotheses.json` y `results/figs/`, y muestra "en curso" donde falta.
+- `WACCI_2026/poster_demosaicking.tex` (+ PDF): **póster vigente**, formato de la
+  plantilla WACCI (`Main.tex`, clase `baposter`, 800 × 1000 mm, no tocar
+  `Main.tex` ni `baposter.cls`). Compilar desde esa carpeta con
+  `tectonic -X compile poster_demosaicking.tex`. Figuras de `../results/figs/`;
+  las cifras están copiadas a mano de `results/` (actualizar si se reentrena).
+  Con tectonic los degradados de `baposter` no se dibujan: el `.tex` usa
+  `headershade=plain` y emula el degradado con franjas. `baposter` escala las
+  longitudes (~3×): los tamaños en cm dentro del póster salen más grandes.
+- `Poster/poster.typ` (+ PDF): versión anterior en Typst (A1), reemplazada por la
+  WACCI; lee `results/` directamente. `Poster/guion_presentacion.md`: guion.
 - `docs/superpowers/plans/2026-11-12-demosaicking-agnostico.md`: plan técnico
   por tareas (T1–T14). Su calendario quedó atrasado; manda este archivo.
 - `Presentacion_Plan/plan_proyecto.typ` (+ PDF): presentación de tema y alcance
