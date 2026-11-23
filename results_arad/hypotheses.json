@@ -1,0 +1,152 @@
+{
+  "h1_drop_db": 5.25943081768321,
+  "h1_drop_db_osp": 6.0905280864346985,
+  "h1_drop_db_conventional": 10.960245947076938,
+  "h2_threshold_db": 2.0,
+  "h2_gap_db": {
+    "imec": 1.3309330903457948,
+    "osp": 1.0097603079687687
+  },
+  "h2_holds": true,
+  "h3_margin_db": {
+    "fixed_imec@osp": 4.6242578509157966,
+    "fixed_imec@btes": 4.273215491068623,
+    "fixed_imec@random": 4.054070620479848,
+    "fixed_osp@imec": 5.339769846308251,
+    "fixed_osp@btes": 4.515607307288683,
+    "fixed_osp@random": 4.548494094553266
+  },
+  "h3_wb_margin_db": {
+    "imec": 1.4060912537981949,
+    "osp": 1.7223657373524404,
+    "btes": 1.7420412229693696,
+    "random": 1.761213751713477
+  },
+  "h3_holds": true,
+  "paired": {
+    "h2": {
+      "imec": {
+        "mean": 1.3309330903457934,
+        "std": 0.4634591899247323,
+        "n": 32,
+        "min": 0.20968663304721247,
+        "max": 2.126981576304189,
+        "scenes_within_threshold": 31,
+        "scenes_within_1db": 7
+      },
+      "osp": {
+        "mean": 1.0097603079687647,
+        "std": 0.7086598205984636,
+        "n": 32,
+        "min": -0.22278866695040378,
+        "max": 2.6606546160200963,
+        "scenes_within_threshold": 31,
+        "scenes_within_1db": 14
+      }
+    },
+    "h3": {
+      "fixed_imec@osp": {
+        "mean": 4.624257850915801,
+        "std": 1.5328570289167476,
+        "n": 32,
+        "min": 1.2704294181501012,
+        "max": 8.282250187346982,
+        "scenes_agnostic_better": 32
+      },
+      "fixed_imec@btes": {
+        "mean": 4.273215491068621,
+        "std": 1.3525254420726334,
+        "n": 32,
+        "min": 1.2803548989230507,
+        "max": 7.4752247958836975,
+        "scenes_agnostic_better": 32
+      },
+      "fixed_imec@random": {
+        "mean": 4.054070620479855,
+        "std": 1.25893032010927,
+        "n": 32,
+        "min": 1.4597609074267162,
+        "max": 7.109231366851056,
+        "scenes_agnostic_better": 32
+      },
+      "fixed_osp@imec": {
+        "mean": 5.339769846308251,
+        "std": 1.9000245121413515,
+        "n": 32,
+        "min": 1.7954064657623903,
+        "max": 9.588846928712435,
+        "scenes_agnostic_better": 32
+      },
+      "fixed_osp@btes": {
+        "mean": 4.5156073072886835,
+        "std": 1.8874705634182338,
+        "n": 32,
+        "min": 1.2263727487141338,
+        "max": 9.684616921260435,
+        "scenes_agnostic_better": 32
+      },
+      "fixed_osp@random": {
+        "mean": 4.548494094553271,
+        "std": 1.5817513016899334,
+        "n": 32,
+        "min": 1.3223655608023535,
+        "max": 7.894231900689853,
+        "scenes_agnostic_better": 32
+      }
+    },
+    "h3_wb": {
+      "imec": {
+        "mean": 1.406091253798201,
+        "std": 2.878549171344904,
+        "n": 32,
+        "min": -7.042243952679925,
+        "max": 4.524768439778619,
+        "scenes_agnostic_better": 26
+      },
+      "osp": {
+        "mean": 1.7223657373524448,
+        "std": 3.0849825034912475,
+        "n": 32,
+        "min": -7.173411326784262,
+        "max": 5.1284377436911015,
+        "scenes_agnostic_better": 26
+      },
+      "btes": {
+        "mean": 1.7420412229693651,
+        "std": 3.0038249149721166,
+        "n": 32,
+        "min": -6.998574517416557,
+        "max": 5.054742960546243,
+        "scenes_agnostic_better": 26
+      },
+      "random": {
+        "mean": 1.7612137517134827,
+        "std": 2.983662057530183,
+        "n": 32,
+        "min": -6.939369022067762,
+        "max": 4.931511069178246,
+        "scenes_agnostic_better": 26
+      }
+    }
+  },
+  "training": {
+    "conventional_imec": {
+      "iters": 20000,
+      "best_val_psnr": 42.7647
+    },
+    "fixed_imec": {
+      "iters": 20000,
+      "best_val_psnr": 43.1254
+    },
+    "fixed_osp": {
+      "iters": 20000,
+      "best_val_psnr": 45.1985
+    },
+    "agnostic": {
+      "iters": 20000,
+      "best_val_psnr": 40.5327
+    }
+  },
+  "data_mode": "arad",
+  "num_test_scenes": 32
+}
