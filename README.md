@@ -20,7 +20,9 @@ uv pip install -p .venv/bin/python -r requirements.txt -e .
 
 - `--data-mode cave-split`: solo CAVE, partición fija 21 / 3 / 8 (entrenar / validar / probar).
 - `--data-mode arad`: entrena con ARAD-1K (`data/ARAD_1K/Train_Spec/*.mat`, 220 + 30)
-  y prueba con las 32 escenas de CAVE.
+  y prueba con las 32 escenas de CAVE. ARAD-1K (950 cubos, 21 GB, CC-BY 4.0) se
+  descarga de la copia en Zenodo (<https://zenodo.org/records/7839604>,
+  `Train_Spec.zip`) y se descomprime en `data/ARAD_1K/Train_Spec/`.
 
 ## Uso
 
@@ -45,6 +47,13 @@ Todo en un comando, por sesiones (se puede pausar y continuar):
 ```bash
 caffeinate -i scripts/run_all.sh 20000 cave-split 60   # entrena ~60 min y se pausa
 caffeinate -i scripts/run_all.sh 20000 cave-split 60   # el mismo comando continúa
+```
+
+Cada modo escribe en su propia carpeta: `cave-split` en `checkpoints/` y `results/`,
+`arad` en `checkpoints_arad/` y `results_arad/`:
+
+```bash
+caffeinate -i scripts/run_all.sh 20000 arad   # ≈ 50 min por red
 ```
 
 Para entrenar en Kaggle: `notebooks/kaggle_train.ipynb`.
@@ -84,11 +93,18 @@ incluye ni su artículo ni su código:
 | Red | TRevSCI, reentrenada para cada MSFA | U-Net pequeña (≈ 1,07 M parámetros) que recibe el mosaico, la máscara del patrón y la interpolación WB |
 | Patrones | Propone OSP y lo compara con otros | Usa IMEC, OSP, BTES y uno aleatorio solo como prueba; no diseña patrones |
 | Código | MATLAB | Python / PyTorch, escrito desde cero |
-| Datos | Simulados a partir de CAVE (256 × 256, 8 bits); filtros ideales y respuestas espectrales reales de la cámara IMEC | Simulados a partir de CAVE (512 × 512, 16 bandas, filtros ideales, sin ruido) |
+| Datos | Simulados a partir de CAVE (256 × 256, 8 bits); filtros ideales y respuestas espectrales reales de la cámara IMEC | Simulados a partir de CAVE (512 × 512) y ARAD-1K (482 × 512); 16 bandas, filtros ideales, sin ruido |
 
 Del artículo solo se toma la fórmula del patrón OSP, `(7·i + 4·j) mod 16 + 1` (con `i`, `j` desde 1), para
 usarlo como patrón de prueba; no se reutiliza código.
 
 ## Resultados
 
-Ver `results/table.md` y `results/hypotheses.json` (se regeneran con el paso 2).
+- Partición de CAVE (21 / 3 / 8): `results/table.md` y `results/hypotheses.json`
+  (se regeneran con el paso 2).
+- Entre datasets (entrenar con ARAD-1K, probar en las 32 escenas de CAVE):
+  `results_arad/table.md` y `results_arad/hypotheses.json`.
+
+Informe final (formato ICIP, en inglés): `LaTeX_template/report.pdf`. Fuente en
+`LaTeX_template/report.tex`; se compila con `tectonic report.tex` desde esa carpeta
+y toma las figuras de `results/figs/`.
