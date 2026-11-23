@@ -24,6 +24,10 @@ METRICS = ("psnr", "ssim", "sam")
 _TRAINED_ON = {"conventional_imec": "imec", "fixed_imec": "imec", "fixed_osp": "osp"}
 # Fixed networks with the same input as the agnostic one: the pairs compared in H2 and H3.
 _SEEN = {"fixed_imec": "imec", "fixed_osp": "osp"}
+# H2 threshold as presented to the course (plan slides): agnostic within 2 dB of each
+# fixed network on that network's own pattern. The written proposal had a stricter
+# 1 dB goal; per-scene counts for both are kept in the paired statistics.
+H2_THRESHOLD_DB = 2.0
 
 
 def run_grid(
@@ -81,7 +85,8 @@ def hypotheses(summary: list[dict]) -> dict:
            "h1_drop_db_conventional": drop("conventional_imec")}
     fixed_present = [f for f in _SEEN if f in methods]
     if "agnostic" not in methods or not fixed_present:
-        out.update(h2_gap_db=None, h2_holds=None, h3_margin_db=None, h3_holds=None)
+        out.update(h2_threshold_db=H2_THRESHOLD_DB, h2_gap_db=None, h2_holds=None,
+                   h3_margin_db=None, h3_wb_margin_db=None, h3_holds=None)
         return out
     gaps = {_SEEN[f]: p[(f, _SEEN[f])] - p[("agnostic", _SEEN[f])] for f in fixed_present}
     margins = {
@@ -90,11 +95,17 @@ def hypotheses(summary: list[dict]) -> dict:
         for pat in TEST_PATTERNS
         if pat != _SEEN[f]
     }
+    # H3 also compares against the classical interpolation, on every test pattern
+    # (none of them is seen by the agnostic network).
+    wb_margins = ({pat: p[("agnostic", pat)] - p[("wb", pat)] for pat in TEST_PATTERNS}
+                  if "wb" in methods else None)
     out.update(
+        h2_threshold_db=H2_THRESHOLD_DB,
         h2_gap_db=gaps,
-        h2_holds=all(g < 1.0 for g in gaps.values()),
+        h2_holds=all(g < H2_THRESHOLD_DB for g in gaps.values()),
         h3_margin_db=margins,
-        h3_holds=all(m > 0 for m in margins.values()),
+        h3_wb_margin_db=wb_margins,
+        h3_holds=all(m > 0 for m in margins.values()) and all(m > 0 for m in (wb_margins or {}).values()),
     )
     return out
 
@@ -104,24 +115,34 @@ def paired_differences(rows: list[dict]) -> dict:
 
     h2[pattern]: fixed - agnostic on the pattern the fixed network was trained on.
     h3["fixed@pattern"]: agnostic - fixed on a pattern the fixed network never saw.
+    h3_wb[pattern]: agnostic - WB on every test pattern.
     Each entry has mean, sample std and n over scenes. Scene-to-scene PSNR spread is
     several dB, so these paired numbers are far tighter than differences of means.
     """
     psnr = {(r["method"], r["pattern"], r["scene"]): r["psnr"] for r in rows}
     methods = {m for m, _, _ in psnr}
     scenes = sorted({s for _, _, s in psnr})
-    out: dict = {"h2": {}, "h3": {}}
+    out: dict = {"h2": {}, "h3": {}, "h3_wb": {}}
     if "agnostic" not in methods:
         return out
+
+    def stats(diffs):
+        return {"mean": float(diffs.mean()), "std": _sample_std(diffs), "n": int(diffs.size),
+                "min": float(diffs.min()), "max": float(diffs.max())}
+
+    if "wb" in methods:
+        for pattern in TEST_PATTERNS:
+            diffs = np.array([psnr[("agnostic", pattern, s)] - psnr[("wb", pattern, s)] for s in scenes])
+            out["h3_wb"][pattern] = {**stats(diffs), "scenes_agnostic_better": int((diffs > 0).sum())}
     for fixed, seen in _SEEN.items():
         if fixed not in methods:
             continue
         for pattern in TEST_PATTERNS:
             sign = 1.0 if pattern == seen else -1.0  # H2: fixed - agnostic; H3: agnostic - fixed
             diffs = np.array([sign * (psnr[(fixed, pattern, s)] - psnr[("agnostic", pattern, s)]) for s in scenes])
-            entry = {"mean": float(diffs.mean()), "std": _sample_std(diffs), "n": int(diffs.size),
-                     "min": float(diffs.min()), "max": float(diffs.max())}
+            entry = stats(diffs)
             if pattern == seen:
+                entry["scenes_within_threshold"] = int((diffs < H2_THRESHOLD_DB).sum())
                 entry["scenes_within_1db"] = int((diffs < 1.0).sum())
                 out["h2"][pattern] = entry
             else:

@@ -26,8 +26,15 @@ def test_hypotheses_from_synthetic_summary():
          *[row("agnostic", p, 39.5) for p in ("imec", "osp", "btes", "random")]]
     h = hypotheses(s)
     assert h["h1_drop_db"] == pytest.approx(15.0)
-    assert h["h2_gap_db"] == {"imec": pytest.approx(0.5), "osp": pytest.approx(1.5)} and h["h2_holds"] is False
-    assert h["h3_holds"] is True and len(h["h3_margin_db"]) == 6
+    assert h["h2_gap_db"] == {"imec": pytest.approx(0.5), "osp": pytest.approx(1.5)} and h["h2_holds"] is True
+    assert h["h2_threshold_db"] == 2.0
+    assert h["h3_holds"] is True and len(h["h3_margin_db"]) == 6 and h["h3_wb_margin_db"] is None
+    worse = [r if r["method"] != "fixed_osp" or r["pattern"] != "osp" else row("fixed_osp", "osp", 42) for r in s]
+    assert hypotheses(worse)["h2_holds"] is False  # OSP gap 2.5 dB
+    with_wb = s + [row("wb", p, v) for p, v in (("imec", 35), ("osp", 35), ("btes", 35), ("random", 39.6))]
+    h = hypotheses(with_wb)
+    assert h["h3_wb_margin_db"]["imec"] == pytest.approx(4.5)
+    assert h["h3_holds"] is False  # agnostic below WB on the random pattern
     assert hypotheses([r for r in s if r["method"] != "agnostic"])["h2_gap_db"] is None
 
 
@@ -64,11 +71,15 @@ def test_paired_differences_per_scene():
     h2 = p["h2"]["imec"]  # fixed - agnostic on the fixed network's own pattern
     assert h2["mean"] == pytest.approx((0.5 + 1.5 + 0.0) / 3)
     assert h2["std"] == pytest.approx(np.std([0.5, 1.5, 0.0], ddof=1))
-    assert h2["n"] == 3 and h2["scenes_within_1db"] == 2
+    assert h2["n"] == 3 and h2["scenes_within_1db"] == 2 and h2["scenes_within_threshold"] == 3
     h3 = p["h3"]["fixed_imec@osp"]  # agnostic - fixed on a pattern the fixed network never saw
     assert h3["mean"] == pytest.approx(np.mean([17.5, 14.5, 14.0])) and h3["scenes_agnostic_better"] == 3
     assert "osp" not in p["h2"]  # no fixed_osp rows -> no entry
-    assert paired_differences([r for r in rows if r["method"] != "agnostic"]) == {"h2": {}, "h3": {}}
+    assert p["h3_wb"] == {}  # no WB rows -> no entry
+    assert paired_differences([r for r in rows if r["method"] != "agnostic"]) == {"h2": {}, "h3": {}, "h3_wb": {}}
+    with_wb = rows + [_row("wb", pat, sc, 37.0) for sc in "abc" for pat in ("imec", "osp", "btes", "random")]
+    wb_imec = paired_differences(with_wb)["h3_wb"]["imec"]
+    assert wb_imec["mean"] == pytest.approx(np.mean([2.5, -0.5, -1.0])) and wb_imec["scenes_agnostic_better"] == 1
 
 
 
