@@ -7,22 +7,21 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 *.pt
-.superpowers/
 DemosaickingMultispectral3DSpherePacking/
 Multispectral_Filter_Array_Design_by_Optimal_Sphere_Packing.pdf
 
 # Material que no es desarrollo del proyecto: solo local
-# (pósteres, presentaciones, guion, plantilla y propuesta LaTeX, notas para el asistente)
+# (pósteres, presentaciones, guion, plantilla y propuesta LaTeX)
 Poster/
 Presentacion_Plan/
 WACCI_2026/
 # De LaTeX_template/ solo se sube el informe final y lo necesario para compilarlo.
 LaTeX_template/*
+!LaTeX_template/informe.tex
+!LaTeX_template/informe.pdf
 !LaTeX_template/report.tex
 !LaTeX_template/report.pdf
 !LaTeX_template/refs.bib
 !LaTeX_template/strings.bib
 !LaTeX_template/spconf.sty
 !LaTeX_template/IEEEbib.bst
-CLAUDE.md
-docs/superpowers/

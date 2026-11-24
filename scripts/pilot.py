@@ -1,4 +1,4 @@
-"""Short diagnostic training runs used in the 16 Nov 2026 review (see docs/revision-2026-11-16.md).
+"""Short diagnostic training runs used in the 16 Nov 2026 review (input ablation, report Section 5.7).
 
 Trains small variants for a few thousand iterations and scores them on the
 VALIDATION scenes only (full image and interior), so the test scenes stay untouched.

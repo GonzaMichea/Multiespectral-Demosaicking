@@ -13,7 +13,7 @@ NUM_BANDS = 16
 #   "wb"          [WB(Y, M), Y*M, M], 48 channels. Default for every network. The weighted
 #                 bilinear estimate does the pattern-dependent interpolation, so the network
 #                 only has to refine it; with the other inputs the pattern-agnostic network
-#                 learns several times slower (see docs/revision-2026-11-16.md).
+#                 learns several times slower (input ablation in the report, Section 5.7).
 #   "mosaic_mask" [Y, M], 17 channels. The input of the original proposal; kept for ablation.
 #   "mosaic"      Y only. A conventional network tied to one pattern; kept as a baseline.
 INPUT_MODES = ("wb", "mosaic_mask", "mosaic")
