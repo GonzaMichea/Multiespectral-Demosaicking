@@ -3,7 +3,8 @@
     python -m msdemosaic.figures --data-root data --data-mode cave-split \
         --checkpoints checkpoints --results results
 
-Writes PDF and PNG files to <results>/figs/. Methods without results or
+Writes PDF and PNG files to <results>/figs/ (or <results>/figs_es/ with
+--lang es, used by the Spanish report). Methods without results or
 checkpoints are skipped.
 """
 import argparse
@@ -35,10 +36,49 @@ LABELS = {
     "agnostic": "U-Net agnostic",
 }
 PATTERN_LABELS = {"imec": "IMEC", "osp": "OSP", "btes": "BTES", "random": "Random"}
+TEXT = {
+    "test_pattern": "Test pattern",
+    "wavelength": "Wavelength (nm)",
+    "reference": "Reference",
+    "pattern": "Pattern",
+    "pixel": "Pixel ({i}, {j}), OSP pattern",
+    "reflectance": "Reflectance",
+    "iteration": "Iteration",
+    "val_psnr": "Validation PSNR (dB)",
+    "mae": "Mean abs. error",
+}
+SPANISH = {
+    "labels": {
+        "conventional_imec": "U-Net sin máscara (IMEC)",
+        "fixed_imec": "U-Net fija-IMEC",
+        "fixed_osp": "U-Net fija-OSP",
+        "agnostic": "U-Net agnóstica",
+    },
+    "patterns": {"random": "Aleatorio"},
+    "text": {
+        "test_pattern": "Patrón de prueba",
+        "wavelength": "Longitud de onda (nm)",
+        "reference": "Referencia",
+        "pattern": "Patrón",
+        "pixel": "Píxel ({i}, {j}), patrón OSP",
+        "reflectance": "Reflectancia",
+        "iteration": "Iteración",
+        "val_psnr": "PSNR de validación (dB)",
+        "mae": "Error abs. medio",
+    },
+}
 WAVELENGTHS = 400 + 20 * np.arange(16)  # nm
 RGB_BANDS = (13, 7, 3)  # ~660 / 540 / 460 nm
 CROP = (slice(192, 320), slice(192, 320))
 SPECTRA_PIXELS = ((40, 40), (90, 90))  # inside the crop
+
+
+def set_language(lang: str) -> None:
+    """Switch labels and axis text to Spanish ("es"); English ("en") is the default."""
+    if lang == "es":
+        LABELS.update(SPANISH["labels"])
+        PATTERN_LABELS.update(SPANISH["patterns"])
+        TEXT.update(SPANISH["text"])
 
 
 def _read_csv(path: Path) -> list[dict]:
@@ -76,7 +116,7 @@ def plot_psnr_bars(rows: list[dict], out: Path) -> None:
         ax.bar(x + (i - (len(methods) - 1) / 2) * width, means, width, yerr=stds, capsize=2,
                color=COLORS[m], label=LABELS[m], error_kw={"linewidth": 0.8})
     ax.set_xticks(x, [PATTERN_LABELS[p] for p in TEST_PATTERNS])
-    ax.set_xlabel("Test pattern")
+    ax.set_xlabel(TEXT["test_pattern"])
     ax.set_ylabel("PSNR (dB)")
     ax.set_ylim(bottom=10)
     ax.grid(axis="y", alpha=0.3)
@@ -97,7 +137,7 @@ def plot_psnr_per_band(band_rows: list[dict], out: Path) -> None:
                     counts[r["band"]] += 1
             ax.plot(WAVELENGTHS, values / counts, marker="o", markersize=3, color=COLORS[m], label=LABELS[m])
         ax.set_title(PATTERN_LABELS[pattern], fontsize=10)
-        ax.set_xlabel("Wavelength (nm)")
+        ax.set_xlabel(TEXT["wavelength"])
         ax.grid(alpha=0.3)
     axes[0].set_ylabel("PSNR (dB)")
     axes[0].legend(fontsize=7, frameon=False)
@@ -118,7 +158,7 @@ def plot_visual(cube: np.ndarray, recons: dict[str, np.ndarray], pattern: str, o
     # scaled down to a poster or paper column (six panels side by side).
     fig, axes = plt.subplots(2, n, figsize=(1.8 * n, 4.2), gridspec_kw={"wspace": 0.08, "hspace": 0.3})
     axes[0, 0].imshow(_rgb(ref))
-    axes[0, 0].set_title("Reference", fontsize=12)
+    axes[0, 0].set_title(TEXT["reference"], fontsize=12)
     axes[1, 0].axis("off")
     for col, (m, recon) in enumerate(recons.items(), start=1):
         crop = np.clip(recon[CROP], 0, 1)
@@ -134,9 +174,9 @@ def plot_visual(cube: np.ndarray, recons: dict[str, np.ndarray], pattern: str, o
     # The colour bar takes its room from both rows, so each error map stays under its
     # reconstruction; shrink/anchor place it next to the bottom row only.
     colorbar = fig.colorbar(im, ax=axes, fraction=0.02, pad=0.01, shrink=0.42, anchor=(0.0, 0.0))
-    colorbar.set_label("Mean abs. error", fontsize=11)
+    colorbar.set_label(TEXT["mae"], fontsize=11)
     colorbar.ax.tick_params(labelsize=10)
-    fig.suptitle(f"Pattern: {PATTERN_LABELS[pattern]}", fontsize=12, y=1.04)
+    fig.suptitle(f"{TEXT['pattern']}: {PATTERN_LABELS[pattern]}", fontsize=12, y=1.04)
     _save(fig, out, f"visual_{pattern}")
 
 
@@ -144,14 +184,14 @@ def plot_spectra(cube: np.ndarray, recons: dict[str, np.ndarray], out: Path) -> 
     fig, axes = plt.subplots(1, len(SPECTRA_PIXELS), figsize=(7.5, 2.8), sharey=True)
     for ax, (i, j) in zip(axes, SPECTRA_PIXELS):
         ii, jj = CROP[0].start + i, CROP[1].start + j
-        ax.plot(WAVELENGTHS, cube[ii, jj], color="black", linewidth=2, label="Reference")
+        ax.plot(WAVELENGTHS, cube[ii, jj], color="black", linewidth=2, label=TEXT["reference"])
         for m, recon in recons.items():
             ax.plot(WAVELENGTHS, np.clip(recon[ii, jj], 0, 1), color=COLORS[m], marker="o", markersize=3,
                     linewidth=1, label=LABELS[m])
-        ax.set_title(f"Pixel ({ii}, {jj}), OSP pattern", fontsize=9)
-        ax.set_xlabel("Wavelength (nm)")
+        ax.set_title(TEXT["pixel"].format(i=ii, j=jj), fontsize=9)
+        ax.set_xlabel(TEXT["wavelength"])
         ax.grid(alpha=0.3)
-    axes[0].set_ylabel("Reflectance")
+    axes[0].set_ylabel(TEXT["reflectance"])
     axes[0].legend(fontsize=7, frameon=False)
     _save(fig, out, "spectra")
 
@@ -167,8 +207,8 @@ def plot_training_curves(checkpoints: Path, out: Path) -> None:
         ax.plot(np.atleast_1d(data["iter"]), np.atleast_1d(data["val_psnr"]), color=COLORS[m], label=LABELS[m])
     # Thousands on the x axis: the default five-digit tick labels overlap at this width.
     ax.xaxis.set_major_formatter(lambda value, _pos: f"{value / 1000:g}k")
-    ax.set_xlabel("Iteration")
-    ax.set_ylabel("Validation PSNR (dB)")
+    ax.set_xlabel(TEXT["iteration"])
+    ax.set_ylabel(TEXT["val_psnr"])
     ax.grid(alpha=0.3)
     ax.legend(fontsize=8, frameon=False)
     _save(fig, out, "training_curves")
@@ -183,9 +223,11 @@ def main() -> None:
     parser.add_argument("--checkpoints", type=Path, default=Path("checkpoints"))
     parser.add_argument("--results", type=Path, default=Path("results"))
     parser.add_argument("--scene", default="beads_ms", help="test scene for the visual figures (falls back to the first test scene)")
+    parser.add_argument("--lang", choices=("en", "es"), default="en", help="language of labels and axes")
     args = parser.parse_args()
 
-    out = args.results / "figs"
+    set_language(args.lang)
+    out = args.results / ("figs" if args.lang == "en" else "figs_es")
     out.mkdir(parents=True, exist_ok=True)
     plot_psnr_bars(_read_csv(args.results / "per_scene.csv"), out)
     plot_psnr_per_band(_read_csv(args.results / "per_band.csv"), out)

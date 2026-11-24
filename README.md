@@ -105,6 +105,10 @@ usarlo como patrón de prueba; no se reutiliza código.
 - Entre datasets (entrenar con ARAD-1K, probar en las 32 escenas de CAVE):
   `results_arad/table.md` y `results_arad/hypotheses.json`.
 
-Informe final (formato ICIP, en inglés): `LaTeX_template/report.pdf`. Fuente en
-`LaTeX_template/report.tex`; se compila con `tectonic report.tex` desde esa carpeta
-y toma las figuras de `results/figs/`.
+Informe final (formato ICIP), en la carpeta `LaTeX_template/`:
+
+- En español: `informe.pdf` (fuente `informe.tex`, figuras de `results/figs_es/`,
+  que se generan con `python -m msdemosaic.figures --data-mode cave-split --lang es`).
+- En inglés: `report.pdf` (fuente `report.tex`, figuras de `results/figs/`).
+
+Se compilan con `tectonic informe.tex` o `tectonic report.tex` desde esa carpeta.

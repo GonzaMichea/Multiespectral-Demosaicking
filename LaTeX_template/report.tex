@@ -4,16 +4,24 @@
 %          IEEEbib.bst - IEEE bibliography style file.
 % Every number in this report comes from ../results/ (summary.csv,
 % per_scene.csv, hypotheses.json), from ../results_arad/ (cross-dataset
-% protocol, Section 5.4) or from docs/revision-2026-11-16.md.
+% protocol, Section 5.4) or from the short runs of scripts/pilot.py (ablation).
 % Compile from this folder:  tectonic report.tex
 % --------------------------------------------------------------------------
 \documentclass{article}
 \usepackage[hyphens]{url}
 \usepackage{spconf,amsmath,amssymb,graphicx,tikz,array,multirow}
+% spconf asks for Times (ptm), which does not exist under XeTeX/tectonic:
+% without this, bold and italics are silently lost. TeX Gyre Termes is a
+% Times clone.
+\usepackage{fontspec}
+\setmainfont{texgyretermes}[Extension=.otf, UprightFont=*-regular,
+  BoldFont=*-bold, ItalicFont=*-italic, BoldItalicFont=*-bolditalic]
+\setmonofont{lmmono10-regular.otf}
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 \newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
 \usetikzlibrary{arrows.meta,positioning,fit}
 \graphicspath{{../results/figs/}}
+\emergencystretch=1em  % avoids overfull lines with Times in two columns
 
 % Notation.
 % ---------
@@ -68,16 +76,16 @@
 Snapshot multispectral cameras use a multispectral filter array (MSFA), so
 each pixel measures one of 16 bands and about 94\% of the datacube must be
 estimated. Learned demosaicking networks give the best results but must be
-retrained for each MSFA. We condition a small U-Net on the pattern, by
-feeding it a bilinear estimate, the sparse measurements and the mask, and
-train it on random balanced patterns. We test it with four MSFAs never used
-to train it (IMEC, optimal sphere packing, BTES and a random kernel). On
-held-out CAVE scenes, networks trained for one pattern lose 7.4 to 15.5\,dB
-on the other patterns and fall below bilinear interpolation. The single
-agnostic network stays within 1.2 to 1.4\,dB of each specialized network on
-its own pattern and is 6.3 to 9.9\,dB better on unseen patterns. Training on
-ARAD-1K and testing on all 32 CAVE scenes confirms these findings, but also
-shows a dataset gap that affects every learned method.
+retrained for each MSFA. We condition a small U-Net on the pattern by
+feeding it a bilinear estimate, the sparse measurements and the mask, train
+it on random balanced patterns, and test it on four MSFAs it never saw
+(IMEC, optimal sphere packing, BTES and a random kernel). On held-out CAVE
+scenes, networks trained for one pattern lose 7.4 to 15.5\,dB on the other
+patterns and fall below bilinear interpolation. The agnostic network is 1.2
+to 1.4\,dB below each specialist on the specialist's pattern and 6.3 to
+9.9\,dB above the specialists on unseen patterns. Training on ARAD-1K and
+testing on all 32 CAVE scenes leads to the same conclusions, although every
+learned method loses accuracy when the dataset changes.
 \end{abstract}
 %
 \begin{keywords}
@@ -99,31 +107,30 @@ spectrum of each pixel helps to distinguish materials that look alike in RGB,
 so MSI is used in remote sensing~\cite{diaz2023}, medical
 imaging~\cite{lu2014}, agriculture, food inspection and cultural heritage.
 
-The difficulty of MSI is acquisition: a 2D sensor cannot record a 3D datacube
-in one exposure without a trade-off. Scanning cameras record the cube one line
+The hard part of MSI is acquisition, because a 2D sensor cannot record a 3D
+datacube in one exposure without a trade-off. Scanning cameras record the cube one line
 or one band at a time, which is slow and fails with moving scenes. Snapshot
 cameras based on a \emph{multispectral filter array} (MSFA) trade spatial
 sampling for speed: a mosaic of narrow-band filters covers the sensor and each
 pixel measures a single band~\cite{lapray2014,geelen2014}. A
 \emph{demosaicking} algorithm must then estimate the missing values. With
 $L=16$ bands, each band is measured at only $1/16$ of the pixels, so about
-94\% of the datacube is unknown. This is far harder than RGB demosaicking,
-where green is measured at half of the pixels. Demosaicking is therefore a
-central computational photography problem: the camera is only useful together
-with the algorithm that reconstructs its images.
+94\% of the datacube is unknown, far more than in RGB demosaicking, where
+green is measured at half of the pixels. The image quality of an MSFA camera
+thus depends as much on the demosaicking algorithm as on the sensor.
 
 Two lines of research have improved MSFA cameras. The first designs better
 patterns: Diaz et al.~\cite{diaz2023} recently placed the filters by
 \emph{optimal sphere packing} (OSP) in the spatio-spectral domain and reported
 up to 2\,dB of improvement over seven existing MSFAs. The second learns the
 reconstruction with convolutional neural networks, which clearly outperform
-classical interpolation~\cite{feng2021,diaz2023}. These two lines do not fit
-well together. A network receives only the raw mosaic, learns the pattern
-implicitly, and becomes tied to the MSFA used in training. In~\cite{diaz2023}
-the network was retrained for every pattern, about a day and a half on two
-GPUs each time, and the authors state that ``a significant limitation of the
-proposed method is the necessity of retraining for specific MSFAs''. This
-dependence is costly: comparing $n$ candidate patterns requires $n$ trained
+classical interpolation~\cite{feng2021,diaz2023}. The two lines do not
+combine easily. A network that receives only the raw mosaic learns the
+pattern implicitly and ends up tied to the MSFA used in training.
+In~\cite{diaz2023} the network was retrained for every pattern, about a day
+and a half on two GPUs each time, and the authors state that ``a significant
+limitation of the proposed method is the necessity of retraining for
+specific MSFAs''. Comparing $n$ candidate patterns then requires $n$ trained
 networks, and a camera with a new or slightly different pattern needs a new
 model.
 
@@ -150,12 +157,12 @@ pattern. (iii) A pattern-agnostic network for 16-band MSFAs: a U-Net
 conditioned on the pattern through its input and trained on random balanced
 patterns, which extends random-pattern training, previously shown for RGB
 filter arrays~\cite{bourrier2022}, to a setting with 94\% missing values
-instead of two thirds. (iv) An ablation
-of the network input, which shows that a pattern-aware interpolation as input
-is the key ingredient. Without it, the agnostic network stays below bilinear
-interpolation at the same training budget. (v) A cross-dataset experiment
-(training on ARAD-1K, testing on all 32 CAVE scenes) that confirms the
-results with four times more test scenes.
+instead of two thirds. (iv) An ablation of the network input. Most of the
+gain comes from giving the network a pattern-aware interpolation; without
+it, the agnostic network stays below bilinear interpolation at the same
+training budget. (v) A cross-dataset experiment (training on ARAD-1K,
+testing on all 32 CAVE scenes) that repeats the comparison with four times
+more test scenes.
 
 % ==========================================================================
 \section{Background and related work}
@@ -183,10 +190,10 @@ Demosaicking estimates $\X$ from $\Y$. Eq.~\eqref{eq:model} gives $HW$
 equations for $HWL$ unknowns, so the problem is severely ill-posed and every
 method needs a prior on natural images. The usual priors are spatial
 correlation (neighboring pixels are similar) and spectral correlation (bands
-with close wavelengths are similar). When the prior fails, three artifacts
-appear: \emph{zipper} patterns that follow the period of the filter kernel,
-\emph{false colors} (spectra that do not exist in the scene) and
-\emph{blur}~\cite{diaz2023}.
+with close wavelengths are similar). When the prior fails, the typical
+artifacts are \emph{zipper} patterns that follow the period of the filter
+kernel, \emph{false colors} (spectra that do not exist in the scene) and
+blur~\cite{diaz2023}.
 
 \subsection{MSFA design}
 
@@ -259,7 +266,7 @@ problem, for example with low-rank and graph priors~\cite{tsagkatakis2019}.
 
 A network $f_\theta$ is trained on pairs $(\Y,\X)$ simulated with
 Eq.~\eqref{eq:model} from datacubes captured by scanning cameras. Examples
-are the mosaic convolution-attention network (MCAN)~\cite{feng2021} and
+are MCAN, a mosaic convolution and attention network~\cite{feng2021}, and
 TRevSCI~\cite{diaz2023}, an adaptation of a reversible network for snapshot
 compressive imaging~\cite{cheng2021}. For RGB, Gharbi et
 al.~\cite{gharbi2016} showed that joint demosaicking and denoising with one
@@ -288,15 +295,15 @@ Wang and Davies~\cite{wang2026} recently described a self-supervised
 multispectral method that does not depend on a specific pattern, but they
 evaluate it on a single $4\times4$ MSFA.
 
-Two ideas from other problems are also relevant.
+We also borrow two ideas from other problems.
 \emph{Normalized convolution}~\cite{knutsson1993} filters the sparse samples
 and divides by the filtered mask, so the same operator works for any
 sampling layout; WB with a normalized kernel is one instance. \emph{Partial
 convolutions}~\cite{liu2018} condition an inpainting network on an arbitrary
 hole mask, and the network is trained with random masks so that it
-generalizes to new ones. We bring random patterns and a mask-aware input to
-16-band MSFAs. To our knowledge, the generalization of learned MSFA
-demosaicking to unseen patterns had not been measured systematically.
+generalizes to new ones. We apply random patterns and a mask-aware input to
+16-band MSFAs. As far as we know, nobody had measured systematically how
+learned MSFA demosaicking generalizes to unseen patterns.
 
 % ==========================================================================
 \section{Proposed method}
@@ -313,7 +320,7 @@ data. We instead condition the network on the pattern through its input:
   \label{eq:input}
 \end{equation}
 where $[\cdot]$ concatenates along the channel axis, giving $3L=48$ input
-channels. The three parts have complementary roles:
+channels. Each part has a different role:
 \begin{itemize}
   \item $\wb(\Y,\M)$ is a pattern-aware first estimate of the full cube.
         We compute it by normalized convolution~\cite{knutsson1993}: for
@@ -331,11 +338,12 @@ channels. The three parts have complementary roles:
   \item $\M$ tells the network which values were measured and which were
         interpolated.
 \end{itemize}
-The network therefore does not have to discover from scratch which band each
-pixel belongs to. It receives an interpolation that already depends on the
-pattern and learns to correct it using spatial and spectral correlations.
-Section~\ref{sec:ablation} shows that this choice is decisive. The input
-proposed in our project plan, $[\Y,\M]$, learned several times more slowly.
+With this input the network does not have to work out from scratch which
+band each pixel belongs to. It receives an interpolation that already
+depends on the pattern and learns to correct it with spatial and spectral
+correlations. In our ablation (Section~\ref{sec:ablation}) this was the
+choice that mattered most: with the input of our project plan, $[\Y,\M]$,
+the network learned several times more slowly.
 
 \subsection{Architecture and loss}
 
@@ -364,13 +372,12 @@ aligned $4\times4$ block. Two families are sampled with equal probability:
   \item \emph{Block}: every aligned $4\times4$ block receives its own
         independent random permutation, so the pattern has no period.
 \end{itemize}
-The tiled family covers kernel-based MSFAs. The block family covers
-non-periodic layouts, and we added it because OSP is not a tiled $4\times4$
-kernel. OSP does have one band per aligned $4\times4$ block, so it belongs to
-the support of the block family. However, a $64\times64$ training patch
-contains 256 blocks, so the probability of sampling the OSP layout is
-$(16!)^{-256}$, which is zero for practical purposes. None of the four test
-patterns is therefore used to train the agnostic network.
+The tiled family covers kernel-based MSFAs. We added the block family for
+non-periodic layouts, because OSP is not a tiled $4\times4$ kernel. OSP does
+have one band per aligned $4\times4$ block, so in principle the block family
+can produce it. A $64\times64$ training patch contains 256 blocks, though,
+so the probability of sampling the OSP layout is $(16!)^{-256}$. In practice
+the agnostic network never sees any of the four test patterns.
 Fig.~\ref{fig:method} summarizes the training scheme.
 
 \begin{figure}[t]
@@ -437,7 +444,7 @@ network trained on random patterns; and (5) \textbf{U-Net no mask (IMEC)}, a
 conventional network that receives only $\Y$ (1\,048\,336 parameters) and is
 trained on IMEC. Methods (2)--(4) have the same input and architecture, so
 any difference between them comes only from the training patterns. Method (5)
-represents the usual practice in learned demosaicking.
+is how learned demosaicking networks are usually trained.
 
 \textbf{Training.} All networks are trained for 20\,000 iterations with
 batches of 32 random $64\times64$ patches, augmented with random flips and
@@ -447,8 +454,8 @@ seed for all networks. Every 1\,000 iterations we compute the PSNR on 256
 fixed validation patches. For the agnostic network, these patches are split
 among 8 fixed random training-type patterns. We keep the checkpoint with the
 best validation PSNR. Training took 45 to 55 minutes per network on a laptop
-(Apple M5, 16\,GB, PyTorch~\cite{paszke2019} with the MPS backend). Both
-protocols use exactly the same settings.
+(Apple M5, 16\,GB, PyTorch~\cite{paszke2019} with the MPS backend). The
+settings are the same in both protocols.
 
 \textbf{Metrics.} Each test scene is reconstructed at full resolution
 ($512\times512$), clipped to $[0,1]$ and compared with the ground truth. PSNR
@@ -532,10 +539,10 @@ U-Net agnostic (ours)
 
 Table~\ref{tab:main} gives the results of the CAVE split and
 Fig.~\ref{fig:bars} shows the PSNR; Section~\ref{sec:cross} repeats the
-experiment across datasets. WB gives practically the same quality on every pattern (31.98 to
-32.13\,dB), which shows that the four test patterns are of comparable
-difficulty for a pattern-independent method. The learned methods behave
-very differently depending on whether the test pattern was seen.
+experiment across datasets. WB gives practically the same quality on every
+pattern (31.98 to 32.13\,dB), so for a pattern-independent method the four
+test patterns are about equally difficult. The learned methods, on the other
+hand, depend strongly on whether they saw the test pattern during training.
 Table~\ref{tab:hyp} summarizes the three hypotheses.
 
 \begin{figure}[t]
@@ -591,56 +598,54 @@ WB         & Random & 4.08 [2.20, 5.95]  & 8 \\
 
 \subsection{H1: specific networks fail on unseen patterns}
 
-H1 holds clearly. Fixed-IMEC reaches 36.64\,dB on IMEC but only 28.77 to
+H1 holds. Fixed-IMEC reaches 36.64\,dB on IMEC but only 28.77 to
 29.74\,dB on the other patterns, a mean drop of 7.38\,dB. Fixed-OSP drops by
 9.94\,dB, from 37.73 to 25.55--28.95\,dB. The conventional network without
-mask drops by 15.45\,dB, to about 20\,dB. All three end up \emph{below} WB,
-a method with no learning at all, by 2.2 to 12.2\,dB. The spectral error
-grows even more. SAM goes from about $4^\circ$ to $13$--$14^\circ$ for the
-fixed networks and to $26$--$35^\circ$ for the network without mask, so the
-reconstructed spectra are no longer useful. Two observations explain this.
-First, the conventional network has no access to the pattern, so on a new
-MSFA it assigns each measurement to the wrong band. Second, the fixed
-networks do receive the mask but still fail. A network that always sees the
-same pattern learns to ignore the mask and memorizes the pattern. Giving the
-mask is therefore not enough: the network must also be trained on many
-patterns.
+mask drops by 15.45\,dB, to about 20\,dB. All three end up below WB, which
+learns nothing, by 2.2 to 12.2\,dB. The spectral error grows even more: SAM
+goes from about $4^\circ$ to $13$--$14^\circ$ for the fixed networks and to
+$26$--$35^\circ$ for the network without mask, and at that level the
+reconstructed spectra are of little use. The failure of the conventional
+network is expected, since it has no access to the pattern and on a new MSFA
+assigns each measurement to the wrong band. The fixed networks are more
+interesting, because they receive the mask and still fail. A network that
+always sees the same pattern can ignore the mask and memorize the pattern
+instead, so the mask only helps if the training patterns vary.
 
-\subsection{H2: the price of generality}
+\subsection{H2: gap on the specialists' own patterns}
 
 On its own pattern, each specific network is better than the agnostic one.
 The gap is 1.21\,dB on IMEC (36.64 vs.\ 35.43\,dB) and 1.40\,dB on OSP
 (37.73 vs.\ 36.33\,dB). Both 95\% intervals, [0.66, 1.75] and [0.88, 1.93],
 lie below 2\,dB, so H2 holds with the 2\,dB threshold of our project plan.
-It does not hold with the stricter 1\,dB threshold of our written proposal,
-because both intervals lie mostly above 1\,dB. Per scene, the gap is below
-2\,dB in all 8 scenes on IMEC and in 5 of 8 on OSP, and below 1\,dB in only
-2 and 3 scenes. In one scene (IMEC) the agnostic network is even better than
-the specific one, by 0.19\,dB. SSIM tells the same story (0.964 vs.\ 0.967
-and 0.970 vs.\ 0.975). The spectral gap is somewhat larger: SAM rises from
+With the 1\,dB threshold of our written proposal it does not hold, since
+most of both intervals lies above 1\,dB. Per scene, the gap is below 2\,dB
+in all 8 scenes on IMEC and in 5 of 8 on OSP, and below 1\,dB in only 2 and
+3 scenes. In one IMEC scene the agnostic network is better than the specific
+one, by 0.19\,dB. The SSIM gap is also small (0.964 vs.\ 0.967 and 0.970
+vs.\ 0.975). The spectral gap is somewhat larger: SAM rises from
 $4.18^\circ$ to $4.94^\circ$ on IMEC and from $4.14^\circ$ to $4.69^\circ$ on
 OSP.
 
-The agnostic network is also compared with the conventional network without
-mask, which is what a practitioner would train today for an IMEC camera. On
-IMEC the two are almost equal (35.43 vs.\ 35.70\,dB, a mean difference of
-0.27\,dB that changes sign across scenes, from $-2.85$ to $+1.53$\,dB). In
-other words, a single agnostic network matches the conventional IMEC network
-on IMEC and also works on every other pattern.
+We also compare the agnostic network with the conventional network without
+mask, which is what one would normally train for an IMEC camera. On IMEC the
+two are almost equal (35.43 vs.\ 35.70\,dB). The mean difference of
+0.27\,dB changes sign across scenes, from $-2.85$ to $+1.53$\,dB. On IMEC,
+then, the agnostic network does as well as the conventional one, and it
+also works on the other patterns.
 
 \subsection{H3: generalization to unseen patterns}
 
-H3 holds in every case. On patterns not seen by the specific networks, the
-agnostic network is better by 6.33 to 9.89\,dB on average, and it is better
-in all 8 scenes in each of the six comparisons. It also improves on WB by
-3.44 to 4.20\,dB on average. This advantage holds in 31 of the 32
-scene--pattern pairs; the exception is \textit{stuffed toys} on IMEC (35.22
-vs.\ 35.37\,dB), a smooth scene where WB is already strong. The agnostic
-network's quality is almost constant across patterns (35.43 to 36.33\,dB).
-Like the specific networks and like~\cite{diaz2023}, it performs better with
-OSP than with IMEC, which agrees with the more uniform spatio-spectral sampling
-of OSP. Fixed-OSP is also better on its pattern than fixed-IMEC on its own
-(37.73 vs.\ 36.64\,dB).
+H3 holds in every case. On patterns that the specific networks did not see,
+the agnostic network is better by 6.33 to 9.89\,dB on average, and it wins
+in all 8 scenes of each of the six comparisons. It also improves on WB by
+3.44 to 4.20\,dB on average, in 31 of the 32 scene--pattern pairs. The
+exception is \textit{stuffed toys} on IMEC (35.22 vs.\ 35.37\,dB), a smooth
+scene where WB is already strong. The quality of the agnostic network barely
+changes across patterns (35.43 to 36.33\,dB). Like the specific networks,
+and as in~\cite{diaz2023}, it does better with OSP than with IMEC, which
+agrees with the more uniform spatio-spectral sampling of OSP. Fixed-OSP on
+OSP is also better than fixed-IMEC on IMEC (37.73 vs.\ 36.64\,dB).
 
 \subsection{Cross-dataset validation: training on ARAD-1K}
 \label{sec:cross}
@@ -666,38 +671,38 @@ U-Net agnostic (ours) & 34.97 & 35.47 & \textbf{35.29} & \textbf{35.31} \\
 \end{tabular}
 \end{table}
 
-The CAVE split has only 8 test scenes and uses one dataset for training and
-testing. We therefore retrained the four networks on ARAD-1K, with the same
-settings, and tested them on all 32 CAVE scenes (Table~\ref{tab:arad}). The
-three hypotheses hold again. \textbf{H1}: fixed-IMEC, fixed-OSP and the
-network without mask lose 5.26, 6.09 and 10.96\,dB on unseen patterns and
-fall below WB. \textbf{H2}: the gap to the specialist is 1.33\,dB on IMEC
-(95\% CI [1.16, 1.50]) and 1.01\,dB on OSP ([0.75, 1.27]). It is below
-2\,dB in 31 of 32 scenes on both patterns and below 1\,dB in 7 and 14
-scenes, so H2 again holds with 2\,dB but not with 1\,dB. \textbf{H3}: on
-unseen patterns the agnostic network beats the specialists by 4.05 to
-5.34\,dB, in all 32 scenes of the six comparisons, and WB by 1.41 to
-1.76\,dB (intervals from [0.37, 2.44] to [0.69, 2.84]). On IMEC it is now
-also better than the network without mask, by 1.10\,dB ([0.66, 1.55], 25 of
-32 scenes).
+The CAVE split has only 8 test scenes, and training and test scenes come
+from the same dataset. To check that the results do not depend on this, we
+retrained the four networks on ARAD-1K with the same settings and tested
+them on all 32 CAVE scenes (Table~\ref{tab:arad}). The three hypotheses hold
+again. For H1, fixed-IMEC, fixed-OSP and the network without mask lose
+5.26, 6.09 and 10.96\,dB on unseen patterns and fall below WB. For H2, the
+gap to the specialist is 1.33\,dB on IMEC (95\% CI [1.16, 1.50]) and
+1.01\,dB on OSP ([0.75, 1.27]). It is below 2\,dB in 31 of 32 scenes on both
+patterns and below 1\,dB in 7 and 14 scenes, so, as before, H2 holds with
+2\,dB but not with 1\,dB. For H3, the agnostic network beats the specialists
+on unseen patterns by 4.05 to 5.34\,dB, in all 32 scenes of the six
+comparisons, and WB by 1.41 to 1.76\,dB (intervals from [0.37, 2.44] to
+[0.69, 2.84]). This time it is also better than the network without mask on
+IMEC, by 1.10\,dB ([0.66, 1.55], 25 of 32 scenes).
 
 The margin over WB is smaller than in the CAVE split. In six scenes
 (\textit{cd}, \textit{clay}, \textit{superballs}, \textit{pompoms},
 \textit{balloons}, \textit{stuffed toys}) the agnostic network is below WB on
-all four patterns, by up to 7.2\,dB, and its mean SAM, like that of the
+all four patterns, by up to 7.2\,dB. Its mean SAM, and that of the
 specialists on their own pattern (11.2 to $13.4^\circ$), is about twice that
-of WB ($5.5^\circ$). This is a dataset gap that affects every learned
-method, not the agnostic network alone: in these six scenes the specialists
-are also below WB on their own pattern, and on the 8 test scenes of the CAVE
-split the networks trained on ARAD-1K lose 2.5 to 4.0\,dB compared with the
-same networks trained on CAVE, while WB is unchanged. Most of the additional
-error lies in bright pixels, so the dark backgrounds of CAVE are not the
-cause. Normalized by their
-mean, CAVE spectra change about twice as much between adjacent bands as
-ARAD-1K spectra (mean absolute difference 0.195 vs.\ 0.100), so the networks
-probably learn a spectral prior that is too smooth for CAVE. Since all
-networks share the same training data, the comparison between them, and
-therefore H1--H3, remains valid.
+of WB ($5.5^\circ$). The problem is not specific to the agnostic network. In
+the same six scenes the specialists are also below WB on their own pattern,
+and on the 8 test scenes of the CAVE split the networks trained on ARAD-1K
+lose 2.5 to 4.0\,dB compared with the same networks trained on CAVE, while
+WB does not change. We therefore attribute the loss to the change of
+dataset. The dark backgrounds of CAVE are not the cause, since most of the
+extra error is in bright pixels. One difference we did find is spectral
+smoothness: normalized by their mean, CAVE spectra change about twice as
+much between adjacent bands as ARAD-1K spectra (mean absolute difference
+0.195 vs.\ 0.100). The networks probably learn from ARAD-1K a spectral prior
+that is too smooth for CAVE. All networks share the same training data, so
+the comparison between them, and with it H1--H3, is still valid.
 
 \subsection{Per-band accuracy and spectral fidelity}
 
@@ -720,10 +725,10 @@ other patterns. The degradation is not uniform: fixed-OSP on IMEC loses
 accuracy steadily with wavelength, from 36.5\,dB at 400\,nm to about 23\,dB
 at 640\,nm, consistent with bands being confused with each other.
 Fig.~\ref{fig:spectra} shows reconstructed spectra of two pixels under OSP.
-WB oscillates around the true spectrum, a spectral form of the zipper
-artifact, because neighboring bands are interpolated from samples at
-different positions. The network without mask loses the shape of the
-spectrum, while the networks with mask follow the reference.
+WB oscillates around the true spectrum because neighboring bands are
+interpolated from samples at different positions, which is the spectral
+counterpart of the zipper artifact. The network without mask loses the
+shape of the spectrum, and the networks with mask follow the reference.
 
 \begin{figure}[t]
 \centering
@@ -751,40 +756,40 @@ periodic artifacts (fixed-OSP on IMEC, fixed-IMEC on OSP) and false colors
 \end{figure*}
 
 Fig.~\ref{fig:visual} shows a crop of \textit{beads}, the hardest test scene
-(all methods stay below 32\,dB on it). WB blurs edges, and its error
-concentrates on the contours and specular highlights. On an unseen pattern
-the specific networks produce structured artifacts: fixed-OSP on IMEC covers
-the image with a grid of the period of the filter kernel (zipper), with
-twice the crop error of WB (0.052 vs.\ 0.025), and fixed-IMEC on OSP shows a
+(all methods stay below 32\,dB on it). WB blurs edges, and most of its
+error is on the contours and specular highlights. On an unseen pattern the
+specific networks produce structured artifacts. Fixed-OSP on IMEC covers the
+image with a grid that has the period of the filter kernel (zipper), and its
+crop error is twice that of WB (0.052 vs.\ 0.025). Fixed-IMEC on OSP shows a
 weaker periodic texture. The network without mask on OSP gives strong false
-colors: the beads turn grayish and the error is more than four times that of
-WB (0.110). The agnostic network shows neither zipper nor false colors, and
-its error (0.024 on IMEC, 0.023 on OSP) is close to that of the specific
-network on its own pattern (0.022 and 0.021).
+colors, the beads turn grayish, and its error is more than four times that
+of WB (0.110). We see neither zipper nor false colors with the agnostic
+network, and its error (0.024 on IMEC, 0.023 on OSP) is close to that of the
+specific network on its own pattern (0.022 and 0.021).
 
-\subsection{Ablation: what the network needs to see}
+\subsection{Ablation of the network input}
 \label{sec:ablation}
 
 Our first agnostic network received $[\Y,\M]$, as proposed in our project
 plan. In short training runs it learned much more slowly than the specific
-networks, so we compared several inputs before the final training.
-Table~\ref{tab:ablation} reports the results. These runs used 2\,000
-iterations and the 3 validation scenes (never the test scenes), so they are
-only indicative. With $[\Y,\M]$ the agnostic network stays 3.3 to 4.4\,dB
-\emph{below} WB. Feeding the sparse cube, $[\Y\odot\M,\M]$, gains only about
-1\,dB. A third option kept WB as a fixed base and let the network learn a
-residual correction. It collapsed to exactly WB: within about 20 iterations,
-all ReLU units of the last hidden layer died and the gradients vanished,
-because the target residual is tiny (median $0.0016$) compared with the Adam
-step. This happened even when the last layer was initialized to zero. Giving
-the WB estimate as an \emph{input}, Eq.~\eqref{eq:input}, solved the
-problem: the agnostic network jumped from 28.3 to 34.6\,dB on IMEC, already
-2\,dB above WB. Our interpretation is that WB already performs the
-pattern-dependent part of the work (which sample belongs to which band, and
-how to spread it), so the network only has to learn a pattern-independent
-refinement. Since this input was also better for the specific networks
-(fixed-IMEC 36.12\,dB at 2\,000 iterations), we used it for all networks so
-that they differ only in their training patterns.
+networks, so we compared several inputs before the final training
+(Table~\ref{tab:ablation}). These runs used 2\,000 iterations and the 3
+validation scenes (never the test scenes), so the numbers are only
+indicative. With $[\Y,\M]$ the agnostic network stays 3.3 to 4.4\,dB below
+WB, and the sparse cube, $[\Y\odot\M,\M]$, gains only about 1\,dB. We also
+tried keeping WB as a fixed base and letting the network learn a residual
+correction. That network collapsed to exactly WB. Within about 20
+iterations all ReLU units of the last hidden layer died and the gradients
+vanished, because the target residual is tiny (median $0.0016$) compared
+with the Adam step, and this happened even when the last layer was
+initialized to zero. Giving the WB estimate as an \emph{input}
+(Eq.~\eqref{eq:input}) solved the problem: the agnostic network went from
+28.3 to 34.6\,dB on IMEC, already 2\,dB above WB. Our interpretation is that
+WB does the pattern-dependent part of the work (which sample belongs to
+which band, and how to spread it), and the network only has to learn a
+refinement that does not depend on the pattern. This input was also better
+for the specific networks (fixed-IMEC 36.12\,dB at 2\,000 iterations), so we
+used it for all networks, which then differ only in their training patterns.
 
 \begin{table}[t]
 \centering
@@ -808,68 +813,65 @@ $[\wb,\Y\odot\M,\M]$ (ours)  & \textbf{34.61} & \textbf{35.07} & \textbf{35.02} 
 \end{tabular}
 \end{table}
 
-The short runs also explain why the specific networks receive the mask. A
-U-Net with two poolings is equivariant to shifts of 4 pixels, but OSP
-repeats every 16 rows, so without the mask the network cannot know the row
-phase of the pattern. A mask-less fixed-OSP network performed the same with
-the pattern shifted by 4 rows (33.40 vs.\ 33.42\,dB), and the mask improved
-it by 1.45\,dB. A mask-less specialist would thus be artificially weak on OSP
-and would hide part of the H2 gap.
+The short runs are also the reason why the specific networks receive the
+mask. A U-Net with two poolings is equivariant to shifts of 4 pixels, but
+OSP repeats every 16 rows, so without the mask the network cannot know the
+row phase of the pattern. A mask-less fixed-OSP network performed the same
+with the pattern shifted by 4 rows (33.40 vs.\ 33.42\,dB), and the mask
+improved it by 1.45\,dB. Without the mask, the OSP specialist would be
+weaker than it should be and part of the H2 gap would be hidden.
 
 \subsection{Training behavior}
 
-In the CAVE split, the validation PSNR (curves in the repository) of
-fixed-IMEC plateaus at about 35.5\,dB after 8\,000 iterations, that of the
-agnostic network at 34.8\,dB after 13\,000 and that of fixed-OSP at 37.3\,dB
-after 15\,000, while the training loss keeps decreasing. Between the short
-runs and the final training (10 times more iterations), the H2 gap on IMEC
-changed only from about 1.5 to 1.21\,dB, and with ten times more training
-scenes (ARAD-1K) the gaps are similar (1.33 and 1.01\,dB). More iterations
-or more data alone are therefore unlikely to close the gap; the capacity of
-the network may be the limit.
+In the CAVE split, the validation PSNR (the curves are in the repository)
+stops improving at about 35.5\,dB after 8\,000 iterations for fixed-IMEC,
+34.8\,dB after 13\,000 for the agnostic network and 37.3\,dB after 15\,000
+for fixed-OSP, while the training loss keeps going down. With 10 times more
+iterations than the short runs, the H2 gap on IMEC only went from about 1.5
+to 1.21\,dB, and with ten times more training scenes (ARAD-1K) the gaps are
+similar (1.33 and 1.01\,dB). We do not expect more iterations or more data
+alone to close the gap; the capacity of the network may be the limit.
 
 % ==========================================================================
 \section{Discussion}
 \label{sec:discussion}
 % ==========================================================================
 
-\textbf{What the results mean.} Training one network per pattern has a
-hidden cost: on a new MSFA the network is \emph{worse than bilinear
-interpolation} and produces zipper and false-color artifacts. A single
-network conditioned on the mask and trained on random balanced patterns
-avoids this on four very different MSFAs, including a non-periodic lattice
-(OSP), at a cost of 1.0 to 1.4\,dB against a specialist on the specialist's
-pattern. This has three uses: (i) candidate MSFAs can be compared with one
-trained network instead of one per pattern, which addresses the limitation
-stated in~\cite{diaz2023}; (ii) one model can serve sensors with different
-layouts, or a sensor whose layout differs slightly from its nominal design;
-(iii) when a camera is fixed, the agnostic network is a natural starting
-point for fine-tuning on its pattern (not tested here).
+\textbf{Implications.} On a new MSFA, a network trained for one pattern is
+worse than bilinear interpolation and produces zipper and false-color
+artifacts. A single network that receives the mask and is trained on random
+balanced patterns avoids this on four quite different MSFAs, including a
+non-periodic lattice (OSP), and loses 1.0 to 1.4\,dB to a specialist on the
+specialist's pattern. We see three uses for such a network. It can compare
+candidate MSFAs without training one network per pattern, which addresses
+the limitation stated in~\cite{diaz2023}. It can serve sensors with
+different layouts, or a sensor whose layout differs slightly from its
+nominal design. And when the camera is fixed, it is a reasonable starting
+point for fine-tuning on that pattern, although we have not tested this.
 
-\textbf{Why it works.} Two ingredients are both necessary. The mask, or a
-pattern-aware interpolation, must reach the network; otherwise the network
-cannot tell bands apart on a new pattern. The training patterns must also
-vary; otherwise the network learns to ignore the mask. Our fixed networks
-have the mask and still fail on new patterns, and our agnostic network with
-input $[\Y,\M]$ has varied patterns but learns slowly. Giving WB as input
-combines the two in the simplest way: a classical, pattern-independent
-operator (normalized convolution) handles the geometry of the pattern, and
-the network learns the image prior.
+\textbf{Why it works.} Our results suggest that two conditions are needed.
+The network must know the pattern, through the mask or a pattern-aware
+interpolation, or it cannot tell the bands apart on a new MSFA. The training
+patterns must also vary, or the network learns to ignore the mask, as our
+fixed networks show. With varied patterns but the input $[\Y,\M]$, the
+agnostic network learns slowly. Giving WB as input is a simple way to meet
+both conditions: normalized convolution, a classical operator that works for
+any pattern, takes care of the geometry of the pattern, and the network
+learns the image prior.
 
 \textbf{Originality.} Random-pattern training has been shown for RGB
 CFAs~\cite{bourrier2022}, mask conditioning with random masks is standard in
 inpainting~\cite{liu2018}, and normalized convolution~\cite{knutsson1993}
-predates deep learning. Our contribution is to bring these ideas to 16-band
+predates deep learning. What we add is the use of these ideas in 16-band
 MSFA demosaicking, where networks are still trained per
-pattern~\cite{feng2021,diaz2023}, and to identify what makes them work in
-this harder setting. In our ablation, a sparse-cube input, similar to the
-one used for RGB in~\cite{bourrier2022}, learns too slowly with 16 bands,
-and a pattern-aware interpolation as input solves this. We also give a
-controlled measurement of the cost of pattern dependence, with specialists
-and an agnostic network that differ only in their training patterns.
+pattern~\cite{feng2021,diaz2023}, and an analysis of what they need in this
+harder setting. In our ablation, a sparse-cube input like the one used for
+RGB in~\cite{bourrier2022} learns too slowly with 16 bands, and a
+pattern-aware interpolation as input fixes this. We also measure the cost of
+pattern dependence in a controlled way, with specialists and an agnostic
+network that differ only in their training patterns.
 
-\textbf{Limitations.} Our conclusions are limited by the following choices.
-(1) \emph{Data}: the main protocol tests on only 8 CAVE scenes. The
+\textbf{Limitations.} (1) \emph{Data}: the main protocol tests on only 8 CAVE scenes. The
 cross-dataset protocol confirms H1--H3 on 32 scenes, but shows that every
 learned method loses accuracy, especially spectral accuracy, when the test
 data differ from the training data; with ARAD-1K training, the margin over
@@ -889,10 +891,10 @@ directly comparable with ours. (5) \emph{Statistics}: each network was
 trained once, with one seed, so we do not measure the variation between
 training runs.
 
-\textbf{Future work.} Natural next steps are: training on several datasets
-to reduce the dataset gap, adding noise and real filter responses, testing patterns with other
-sizes and with repeated bands, fine-tuning the agnostic network on a fixed
-pattern, increasing the network capacity to reduce the H2 gap, and using the
+\textbf{Future work.} We would like to train on several datasets to reduce
+the dataset gap, add noise and real filter responses, test patterns with
+other sizes and with repeated bands, fine-tune the agnostic network on a
+fixed pattern, try a larger network to reduce the H2 gap, and use the
 agnostic network as a fast evaluator inside an MSFA design loop.
 
 % ==========================================================================
@@ -911,30 +913,31 @@ and outperforms the specialists by 6.3 to 9.9\,dB and bilinear interpolation
 by 3.4 to 4.2\,dB on unseen patterns (H3). Training on ARAD-1K and testing
 on all 32 CAVE scenes confirms the three hypotheses, although the change of
 dataset hurts every learned method and reduces the margin over bilinear
-interpolation to 1.4--1.8\,dB. The key design choice is to give the network
-a pattern-aware interpolation as input. A single network can therefore
-replace one network per pattern at a modest cost in accuracy, which makes
-learned demosaicking practical for MSFA design and for cameras with
-different filter layouts.
+interpolation to 1.4--1.8\,dB. The design choice that made this possible
+was to give the network a pattern-aware interpolation as input. One network
+can thus replace one network per pattern at a modest cost in accuracy,
+which would make learned demosaicking easier to use in MSFA design and in
+cameras with different filter layouts.
 
 % ==========================================================================
 \section{Data, code and acknowledgments}
 \label{sec:ack}
 % ==========================================================================
 
+{\sloppy  % URL and folder names cannot be hyphenated
 All code (simulator, baselines, networks, training, evaluation and
-figures) and all results reported here are available at\\
-{\footnotesize\url{https://github.com/GonzaMichea/Multiespectral-Demosaicking}}.\\
+figures) and all results reported here are available in the repository
+{\small\url{https://github.com/GonzaMichea/Multiespectral-Demosaicking}}.
 The tables
-and figures are generated from the files in \texttt{results/} and
-\texttt{results\_arad/}, and both protocols can be reproduced with
+and figures are generated from the result files (folders
+\texttt{results/} and \texttt{results\_arad/}), and both protocols can be reproduced with
 \texttt{scripts/run\_all.sh}. We thank the authors of the CAVE~\cite{yasuma2010}
 and ARAD-1K~\cite{arad2022} datasets and Diaz et
 al.~\cite{diaz2023} for their public MATLAB code, which we used to verify our
 patterns and our WB baseline. The software is based on
 PyTorch~\cite{paszke2019}, NumPy~\cite{harris2020},
 SciPy~\cite{virtanen2020}, scikit-image~\cite{vanderwalt2014} and
-Matplotlib~\cite{hunter2007}.
+Matplotlib~\cite{hunter2007}.\par}
 
 % References.
 % -----------
