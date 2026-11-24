@@ -15,13 +15,9 @@ Multispectral_Filter_Array_Design_by_Optimal_Sphere_Packing.pdf
 Poster/
 Presentacion_Plan/
 WACCI_2026/
-# De LaTeX_template/ solo se sube el informe final y lo necesario para compilarlo.
-LaTeX_template/*
-!LaTeX_template/informe.tex
-!LaTeX_template/informe.pdf
-!LaTeX_template/report.tex
-!LaTeX_template/report.pdf
-!LaTeX_template/refs.bib
-!LaTeX_template/strings.bib
-!LaTeX_template/spconf.sty
-!LaTeX_template/IEEEbib.bst
+LaTeX_template/
+# Archivos auxiliares de LaTeX
+*.aux
+*.blg
+*.bbl
+*.log
